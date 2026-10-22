@@ -209,6 +209,77 @@ async function runSmokeTests() {
         throw new Error('Scenario b failed');
       }
 
+      // ── Scenario baru 1: 5 message:send dengan clientMessageId sama paralel ──
+      const concurrentMsgId = crypto.randomUUID();
+      const concurrentAcks = await Promise.all([
+        emitWithAck(customerSocketA, 'message:send', { body: 'Pesan paralel idempotensi', clientMessageId: concurrentMsgId }),
+        emitWithAck(customerSocketA, 'message:send', { body: 'Pesan paralel idempotensi', clientMessageId: concurrentMsgId }),
+        emitWithAck(customerSocketA, 'message:send', { body: 'Pesan paralel idempotensi', clientMessageId: concurrentMsgId }),
+        emitWithAck(customerSocketA, 'message:send', { body: 'Pesan paralel idempotensi', clientMessageId: concurrentMsgId }),
+        emitWithAck(customerSocketA, 'message:send', { body: 'Pesan paralel idempotensi', clientMessageId: concurrentMsgId }),
+      ]);
+
+      const allAcksOk = concurrentAcks.every((ack) => ack.ok === true);
+      const msgsResConcurrent = await fetchJson(`/api/tickets/${ticketIdA}/messages`, {
+        headers: { Authorization: `Bearer ${agent1Token}` },
+      });
+      const matchingConcurrent = msgsResConcurrent.data.data.filter((m) => m.clientMessageId === concurrentMsgId);
+
+      if (allAcksOk && matchingConcurrent.length === 1) {
+        console.log('PASS: 5 message:send dengan clientMessageId sama paralel -> semua ok: true & 1 pesan di database');
+      } else {
+        console.error('FAIL: 5 message:send dengan clientMessageId sama paralel', { allAcksOk, count: matchingConcurrent.length });
+        throw new Error('5 parallel message:send failed');
+      }
+
+      // ── Scenario baru 2: Customer baru mengirim 2 pesan berbeda paralel -> hanya 1 tiket terbentuk ──
+      const sessRace = await fetchJson('/widget/session', {
+        method: 'POST',
+        body: JSON.stringify({ name: `Customer Race ${runId}` }),
+      });
+      const custRace = sessRace.data.data.customer;
+      const visitorTokenRace = sessRace.data.data.visitorToken;
+      createdCustomerIds.push(custRace.id);
+
+      const custSocketRace = await createSocket({ visitorToken: visitorTokenRace });
+      activeSockets.push(custSocketRace);
+
+      const [ackRace1, ackRace2] = await Promise.all([
+        emitWithAck(custSocketRace, 'message:send', {
+          body: 'Pesan race condition tiket 1',
+          clientMessageId: crypto.randomUUID(),
+        }),
+        emitWithAck(custSocketRace, 'message:send', {
+          body: 'Pesan race condition tiket 2',
+          clientMessageId: crypto.randomUUID(),
+        }),
+      ]);
+
+      if (ackRace1.ticket?.id) createdTicketIds.push(ackRace1.ticket.id);
+      if (ackRace2.ticket?.id && ackRace2.ticket.id !== ackRace1.ticket?.id) {
+        createdTicketIds.push(ackRace2.ticket.id);
+      }
+
+      const raceTickets = await prisma.ticket.findMany({
+        where: { customerId: custRace.id },
+      });
+
+      if (
+        ackRace1.ok === true &&
+        ackRace2.ok === true &&
+        raceTickets.length === 1 &&
+        ackRace1.ticket?.id === ackRace2.ticket?.id
+      ) {
+        console.log('PASS: customer baru kirim 2 pesan berbeda paralel -> hanya 1 tiket terbentuk');
+      } else {
+        console.error('FAIL: customer baru kirim 2 pesan berbeda paralel', {
+          ack1Ticket: ackRace1.ticket?.id,
+          ack2Ticket: ackRace2.ticket?.id,
+          dbCount: raceTickets.length,
+        });
+        throw new Error('Customer new ticket race condition failed');
+      }
+
       // ── Scenario c: Dua agen claim bersamaan -> satu berhasil, satu 409 ──
       const [claim1, claim2] = await Promise.all([
         fetchJson(`/api/tickets/${ticketIdA}/claim`, {
