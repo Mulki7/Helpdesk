@@ -77,15 +77,16 @@ export function TicketsProvider({ children }) {
     try {
       const params = buildQueryParams();
       const res = await ticketsApi.getTickets(params);
-      setTickets(res.tickets || []);
+      const items = res.items || res.tickets || [];
+      setTickets(items);
 
       if (res.counts) {
         setCounts({
-          antrean: res.counts.openUnassigned || 0,
-          mine: res.counts.myTickets || 0,
-          all: res.counts.total || 0,
-          resolved: res.counts.resolved || 0,
-          closed: res.counts.closed || 0,
+          antrean: res.counts.antrean ?? res.counts.openUnassigned ?? res.counts.OPEN ?? 0,
+          mine: res.counts.mine ?? res.counts.myTickets ?? 0,
+          all: res.counts.all ?? res.counts.total ?? res.counts.ALL ?? 0,
+          resolved: res.counts.resolved ?? res.counts.RESOLVED ?? 0,
+          closed: res.counts.closed ?? res.counts.CLOSED ?? 0,
         });
       }
     } catch (err) {

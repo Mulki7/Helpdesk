@@ -53,15 +53,19 @@ export async function getTickets({ status, assigned, q, page = 1, limit = 20, us
     ];
   }
 
-  // Get status counts for badges (all statuses regardless of the `status` filter)
-  const countWhere = { ...where };
-  delete countWhere.status;
+  // Compute global badge counts across all statuses
+  const userId = Number(user?.sub || user?.id || 0);
 
-  const [statusGroups, total, tickets] = await Promise.all([
+  const [statusGroups, openUnassignedCount, myTicketsCount, total, tickets] = await Promise.all([
     prisma.ticket.groupBy({
       by: ['status'],
-      where: countWhere,
       _count: { _all: true },
+    }),
+    prisma.ticket.count({
+      where: { status: 'OPEN', assignedAgentId: null },
+    }),
+    prisma.ticket.count({
+      where: { assignedAgentId: userId },
     }),
     prisma.ticket.count({ where }),
     prisma.ticket.findMany({
@@ -81,11 +85,27 @@ export async function getTickets({ status, assigned, q, page = 1, limit = 20, us
     }),
   ]);
 
-  const counts = { OPEN: 0, IN_PROGRESS: 0, RESOLVED: 0, CLOSED: 0, ALL: 0 };
+  const counts = {
+    OPEN: 0,
+    IN_PROGRESS: 0,
+    RESOLVED: 0,
+    CLOSED: 0,
+    ALL: 0,
+    openUnassigned: openUnassignedCount,
+    myTickets: myTicketsCount,
+    antrean: openUnassignedCount,
+    mine: myTicketsCount,
+    all: 0,
+    resolved: 0,
+    closed: 0,
+  };
   for (const group of statusGroups) {
     counts[group.status] = group._count._all;
     counts.ALL += group._count._all;
   }
+  counts.all = counts.ALL;
+  counts.resolved = counts.RESOLVED;
+  counts.closed = counts.CLOSED;
 
   const items = tickets.map((t) => {
     const lastMsg = t.messages?.[0] ?? null;
@@ -104,6 +124,7 @@ export async function getTickets({ status, assigned, q, page = 1, limit = 20, us
 
   return {
     items,
+    tickets: items, // alias for frontend compatibility
     pagination: {
       page: pageNum,
       limit: take,
