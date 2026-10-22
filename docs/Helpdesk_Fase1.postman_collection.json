@@ -1,0 +1,910 @@
+{
+  "info": {
+    "name": "Helpdesk API — Fase 1",
+    "_postman_id": "helpdesk-fase1-2026",
+    "description": "Koleksi lengkap untuk menguji endpoint Fase 1 backend Helpdesk.\n\n**Cara pakai:**\n1. Import file ini ke Postman\n2. Import file environment `Helpdesk_ENV.postman_environment.json`\n3. Pilih environment **Helpdesk Local** di pojok kanan atas\n4. Jalankan **Auth / Login (Admin)** terlebih dahulu — token otomatis tersimpan\n5. Semua request lain langsung bisa dijalankan",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [],
+  "item": [
+    {
+      "name": "🏥 Health Check",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Cek apakah server berjalan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response punya data.status ok', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.status).to.eql('ok');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Login (Admin) ✅",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@helpdesk.test\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "description": "Login sebagai admin. Token otomatis disimpan ke environment variable."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Dapat accessToken dan refreshToken', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.accessToken).to.be.a('string');",
+                  "  pm.expect(body.data.refreshToken).to.be.a('string');",
+                  "  pm.expect(body.data.user.role).to.eql('ADMIN');",
+                  "  pm.expect(body.data.user.passwordHash).to.be.undefined; // jangan bocor",
+                  "});",
+                  "",
+                  "// Simpan token ke environment",
+                  "const body = pm.response.json();",
+                  "if (body.data) {",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "  pm.environment.set('adminId', body.data.user.id);",
+                  "  console.log('✅ Token admin tersimpan');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Agent 1) ✅",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"agent1@helpdesk.test\",\n  \"password\": \"Agent123!\"\n}"
+            },
+            "description": "Login sebagai agent. Token agent tersimpan di agentToken."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Role adalah AGENT', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.user.role).to.eql('AGENT');",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data) {",
+                  "  pm.environment.set('agentToken', body.data.accessToken);",
+                  "  pm.environment.set('agentRefreshToken', body.data.refreshToken);",
+                  "  pm.environment.set('agentId', body.data.user.id);",
+                  "  console.log('✅ Token agent tersimpan');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — Email Salah ❌ 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"tidakada@helpdesk.test\",\n  \"password\": \"Admin123!\"\n}"
+            },
+            "description": "Harus gagal dengan 401 INVALID_CREDENTIALS."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Code INVALID_CREDENTIALS', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.error.code).to.eql('INVALID_CREDENTIALS');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — Password Salah ❌ 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@helpdesk.test\",\n  \"password\": \"salah123\"\n}"
+            },
+            "description": "Harus gagal dengan 401 INVALID_CREDENTIALS."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Code INVALID_CREDENTIALS', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.error.code).to.eql('INVALID_CREDENTIALS');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — Validasi (email kosong) ❌ 400",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"Admin123!\"\n}"
+            },
+            "description": "Validasi Zod — harus gagal 400 VALIDATION_ERROR."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Code VALIDATION_ERROR', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "  pm.expect(body.error.details).to.have.property('email');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /auth/me (Admin) ✅",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Ambil profil user yang sedang login. Butuh accessToken admin."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Profil user dikembalikan tanpa passwordHash', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.email).to.eql('admin@helpdesk.test');",
+                  "  pm.expect(body.data.passwordHash).to.be.undefined;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /auth/me — Tanpa Token ❌ 401",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Harus ditolak 401 karena tidak ada Bearer token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Code UNAUTHORIZED', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('UNAUTHORIZED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token ✅",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+            },
+            "description": "Rotasi token: token lama dicabut, token baru diterbitkan. accessToken baru otomatis tersimpan."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Dapat token baru', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.accessToken).to.be.a('string');",
+                  "  pm.expect(body.data.refreshToken).to.be.a('string');",
+                  "  // Token baru harus berbeda dari yang lama",
+                  "  pm.expect(body.data.refreshToken).to.not.eql(pm.environment.get('refreshToken'));",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data) {",
+                  "  pm.environment.set('accessToken', body.data.accessToken);",
+                  "  pm.environment.set('refreshToken', body.data.refreshToken);",
+                  "  console.log('✅ Token diperbarui (rotasi)');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token — Token Tidak Valid ❌ 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"tokenpalsuyangtidakada12345\"\n}"
+            },
+            "description": "Harus gagal 401 INVALID_TOKEN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Code INVALID_TOKEN', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('INVALID_TOKEN');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout ✅",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{agentRefreshToken}}\"\n}"
+            },
+            "description": "Cabut refreshToken agent (bukan admin supaya sesi admin tidak putus). Setelah ini, refresh dengan token agent akan gagal."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Pesan logout berhasil', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.message).to.include('logout');",
+                  "});",
+                  "console.log('ℹ️  Coba jalankan Refresh dengan agentRefreshToken — harus 401 TOKEN_REVOKED');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Setelah Logout ❌ 401 TOKEN_REVOKED",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "refresh"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{agentRefreshToken}}\"\n}"
+            },
+            "description": "Jalankan SETELAH Logout. Token agent sudah dicabut — harus 401 TOKEN_REVOKED."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Code TOKEN_REVOKED', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('TOKEN_REVOKED');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "👥 User Management (Admin Only)",
+      "item": [
+        {
+          "name": "GET /users — Daftar Semua User ✅",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Daftar semua user. Hanya bisa diakses admin."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Mengembalikan array user', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data).to.be.an('array');",
+                  "  pm.expect(body.data.length).to.be.gte(3); // minimal 3 dari seed",
+                  "});",
+                  "pm.test('passwordHash tidak bocor', () => {",
+                  "  const body = pm.response.json();",
+                  "  body.data.forEach(u => pm.expect(u.passwordHash).to.be.undefined);",
+                  "});",
+                  "",
+                  "// Simpan ID agent2 untuk tes berikutnya",
+                  "const body = pm.response.json();",
+                  "const agent2 = body.data.find(u => u.email === 'agent2@helpdesk.test');",
+                  "if (agent2) pm.environment.set('agent2Id', agent2.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /users — Pakai Token Agent ❌ 403",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{agentToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "description": "Agent tidak boleh mengakses endpoint admin — harus 403 FORBIDDEN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403', () => pm.response.to.have.status(403));",
+                  "pm.test('Code FORBIDDEN', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('FORBIDDEN');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users — Buat Agent Baru ✅",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Agen Tiga\",\n  \"email\": \"agent3@helpdesk.test\",\n  \"password\": \"Agent123!\",\n  \"role\": \"AGENT\"\n}"
+            },
+            "description": "Buat user baru sebagai AGENT. ID tersimpan ke newUserId."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "pm.test('User dibuat dengan benar', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.email).to.eql('agent3@helpdesk.test');",
+                  "  pm.expect(body.data.role).to.eql('AGENT');",
+                  "  pm.expect(body.data.isActive).to.be.true;",
+                  "  pm.expect(body.data.passwordHash).to.be.undefined;",
+                  "});",
+                  "",
+                  "const body = pm.response.json();",
+                  "if (body.data) pm.environment.set('newUserId', body.data.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users — Email Duplikat ❌ 409",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Duplikat\",\n  \"email\": \"agent3@helpdesk.test\",\n  \"password\": \"Agent123!\",\n  \"role\": \"AGENT\"\n}"
+            },
+            "description": "Email sudah dipakai — harus 409 EMAIL_TAKEN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 409', () => pm.response.to.have.status(409));",
+                  "pm.test('Code EMAIL_TAKEN', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('EMAIL_TAKEN');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users — Password Pendek ❌ 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test\",\n  \"email\": \"test@example.com\",\n  \"password\": \"123\",\n  \"role\": \"AGENT\"\n}"
+            },
+            "description": "Password < 8 karakter — harus 400 VALIDATION_ERROR."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Detail error pada field password', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.error.code).to.eql('VALIDATION_ERROR');",
+                  "  pm.expect(body.error.details).to.have.property('password');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /users — Role Tidak Valid ❌ 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Test\",\n  \"email\": \"test2@example.com\",\n  \"password\": \"Test1234!\",\n  \"role\": \"SUPERUSER\"\n}"
+            },
+            "description": "Role harus AGENT atau ADMIN — harus 400 VALIDATION_ERROR."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Detail error pada field role', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.error.details).to.have.property('role');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/:id — Update Nama ✅",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{newUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{newUserId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Agen Tiga (Updated)\"\n}"
+            },
+            "description": "Update nama user yang baru dibuat."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Nama berhasil diperbarui', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.name).to.eql('Agen Tiga (Updated)');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/:id — Nonaktifkan Agent ✅",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{newUserId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{newUserId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "description": "Nonaktifkan agent. Setelah ini, agent tidak bisa login."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('isActive menjadi false', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body.data.isActive).to.be.false;",
+                  "});",
+                  "console.log('ℹ️  Coba login dengan agent3 — harus 401 ACCOUNT_INACTIVE');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login — Akun Nonaktif ❌ 401",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"agent3@helpdesk.test\",\n  \"password\": \"Agent123!\"\n}"
+            },
+            "description": "Login dengan akun yang sudah dinonaktifkan — harus 401 ACCOUNT_INACTIVE."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Code ACCOUNT_INACTIVE', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('ACCOUNT_INACTIVE');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/:id — Reset Password ✅",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{agent2Id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{agent2Id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"password\": \"NewPass123!\"\n}"
+            },
+            "description": "Reset password agent2. Setelah ini login dengan password lama Agent123! gagal."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('passwordHash tidak bocor di response', () => {",
+                  "  pm.expect(pm.response.json().data.passwordHash).to.be.undefined;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/:id — Admin Nonaktifkan Diri Sendiri ❌ 400",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/{{adminId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "{{adminId}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isActive\": false\n}"
+            },
+            "description": "Admin tidak boleh nonaktifkan dirinya sendiri — harus 400 CANNOT_DEACTIVATE_SELF."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 400', () => pm.response.to.have.status(400));",
+                  "pm.test('Code CANNOT_DEACTIVATE_SELF', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('CANNOT_DEACTIVATE_SELF');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /users/:id — User Tidak Ada ❌ 404",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/users/99999",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "users", "99999"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Tidak ada\"\n}"
+            },
+            "description": "ID tidak ada — harus 404 NOT_FOUND."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Code NOT_FOUND', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('NOT_FOUND');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "🔒 Security Checks",
+      "item": [
+        {
+          "name": "Token Palsu ❌ 401",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer tokenpalsubanget.tidakvalid.samasekali" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Token JWT yang tidak valid — harus 401 INVALID_TOKEN."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));",
+                  "pm.test('Code INVALID_TOKEN', () => {",
+                  "  pm.expect(pm.response.json().error.code).to.eql('INVALID_TOKEN');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Endpoint Tidak Ada ❌ 404",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/tidakada",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "tidakada"]
+            },
+            "description": "Endpoint tidak terdaftar — harus 404 NOT_FOUND."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 404', () => pm.response.to.have.status(404));",
+                  "pm.test('Format error konsisten', () => {",
+                  "  const body = pm.response.json();",
+                  "  pm.expect(body).to.have.property('error');",
+                  "  pm.expect(body.error).to.have.property('code');",
+                  "  pm.expect(body.error).to.have.property('message');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
