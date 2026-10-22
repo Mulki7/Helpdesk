@@ -1,0 +1,28 @@
+# Root gitignore
+node_modules/
+.env
+*.log
+dist/
+build/
+
+# Prisma generated
+backend/node_modules/
+backend/prisma/migrations/
+
+# Flutter
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/build/
+
+# Web
+web/node_modules/
+web/dist/
+
+# Widget
+widget/node_modules/
+widget/dist/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,164 @@
+// backend/prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  AGENT
+  ADMIN
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum SenderType {
+  CUSTOMER
+  AGENT
+  SYSTEM
+}
+
+enum TicketEventType {
+  CREATED
+  ASSIGNED
+  RELEASED
+  STATUS_CHANGED
+  PRIORITY_CHANGED
+  REOPENED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  updatedAt    DateTime @updatedAt @db.Timestamptz
+
+  refreshTokens   RefreshToken[]
+  assignedTickets Ticket[]       @relation("AssignedAgent")
+  messages        Message[]      @relation("SenderUser")
+  ticketEvents    TicketEvent[]  @relation("ActorUser")
+  deviceTokens    DeviceToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int
+  tokenHash String    @unique
+  expiresAt DateTime  @db.Timestamptz
+  revokedAt DateTime? @db.Timestamptz
+  createdAt DateTime  @default(now()) @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Customer {
+  id           Int      @id @default(autoincrement())
+  visitorToken String   @unique
+  name         String
+  email        String?
+  createdAt    DateTime @default(now()) @db.Timestamptz
+  lastSeenAt   DateTime @default(now()) @db.Timestamptz
+
+  tickets Ticket[]
+
+  @@map("customers")
+}
+
+model Ticket {
+  id              Int            @id @default(autoincrement())
+  customerId      Int
+  assignedAgentId Int?
+  subject         String
+  status          TicketStatus   @default(OPEN)
+  priority        TicketPriority @default(MEDIUM)
+  createdAt       DateTime       @default(now()) @db.Timestamptz
+  updatedAt       DateTime       @updatedAt @db.Timestamptz
+  lastMessageAt   DateTime       @default(now()) @db.Timestamptz
+  resolvedAt      DateTime?      @db.Timestamptz
+  closedAt        DateTime?      @db.Timestamptz
+
+  customer      Customer      @relation(fields: [customerId], references: [id])
+  assignedAgent User?         @relation("AssignedAgent", fields: [assignedAgentId], references: [id])
+  messages      Message[]
+  events        TicketEvent[]
+
+  @@index([status, assignedAgentId])
+  @@index([customerId, createdAt])
+  @@index([lastMessageAt])
+  @@map("tickets")
+}
+
+model Message {
+  id              Int        @id @default(autoincrement())
+  ticketId        Int
+  senderType      SenderType
+  senderUserId    Int?
+  body            String
+  clientMessageId String?
+  createdAt       DateTime   @default(now()) @db.Timestamptz
+
+  ticket     Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  senderUser User?  @relation("SenderUser", fields: [senderUserId], references: [id])
+
+  // Unique constraint on (ticketId, clientMessageId) for idempotency.
+  // PostgreSQL allows multiple NULLs in a unique constraint, so SYSTEM messages are safe.
+  @@unique([ticketId, clientMessageId])
+  @@index([ticketId, id])
+  @@map("messages")
+}
+
+model TicketEvent {
+  id          Int             @id @default(autoincrement())
+  ticketId    Int
+  actorUserId Int?
+  type        TicketEventType
+  oldValue    String?
+  newValue    String?
+  createdAt   DateTime        @default(now()) @db.Timestamptz
+
+  ticket    Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorUser User?  @relation("ActorUser", fields: [actorUserId], references: [id])
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_events")
+}
+
+model DeviceToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  token     String   @unique
+  platform  String
+  createdAt DateTime @default(now()) @db.Timestamptz
+  updatedAt DateTime @updatedAt @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("device_tokens")
+}
