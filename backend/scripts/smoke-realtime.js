@@ -403,6 +403,150 @@ async function runSmokeTests() {
       }
     }
 
+    // ── Scenario Baru: Idempotency sebelum keputusan tiket (CLOSED & RESOLVED) ──
+    {
+      // 1) Customer mengirim pesan (tiket terbentuk), tiket di-resolve lalu di-close lewat REST,
+      //    lalu pesan dengan clientMessageId yang sama dikirim ulang -> ok: true,
+      //    jumlah tiket customer tidak bertambah, hanya satu pesan dengan clientMessageId itu di database.
+      const sessIdem = await fetchJson('/widget/session', {
+        method: 'POST',
+        body: JSON.stringify({ name: `Customer Idem ${runId}` }),
+      });
+      const custIdem = sessIdem.data.data.customer;
+      const visitorTokenIdem = sessIdem.data.data.visitorToken;
+      createdCustomerIds.push(custIdem.id);
+
+      const custSocketIdem = await createSocket({ visitorToken: visitorTokenIdem });
+      activeSockets.push(custSocketIdem);
+
+      const idemMsgId1 = crypto.randomUUID();
+      const ack1 = await emitWithAck(custSocketIdem, 'message:send', {
+        body: 'Pesan tes tiket closed idempotensi',
+        clientMessageId: idemMsgId1,
+      });
+      const ticketIdIdem = ack1.ticket.id;
+      createdTicketIds.push(ticketIdIdem);
+
+      // Claim then Resolve then Close via REST
+      await fetchJson(`/api/tickets/${ticketIdIdem}/claim`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${agent1Token}` },
+      });
+      await fetchJson(`/api/tickets/${ticketIdIdem}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ status: 'RESOLVED' }),
+      });
+      await fetchJson(`/api/tickets/${ticketIdIdem}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ status: 'CLOSED' }),
+      });
+
+      const ticketsCountBefore = (await prisma.ticket.findMany({ where: { customerId: custIdem.id } })).length;
+
+      // Resend the same clientMessageId1
+      const resendAck1 = await emitWithAck(custSocketIdem, 'message:send', {
+        body: 'Pesan tes tiket closed idempotensi',
+        clientMessageId: idemMsgId1,
+      });
+
+      const ticketsCountAfter = (await prisma.ticket.findMany({ where: { customerId: custIdem.id } })).length;
+      const matchingDbMsgs1 = await prisma.message.findMany({ where: { clientMessageId: idemMsgId1 } });
+
+      if (
+        resendAck1.ok === true &&
+        ticketsCountBefore === ticketsCountAfter &&
+        matchingDbMsgs1.length === 1
+      ) {
+        console.log('PASS: resend pesan yang sama pada tiket CLOSED -> ok: true, tiket tidak bertambah, 1 baris pesan');
+      } else {
+        console.error('FAIL: resend pesan pada tiket CLOSED gagal', { resendAck1, ticketsCountBefore, ticketsCountAfter, dbCount: matchingDbMsgs1.length });
+        throw new Error('Resend message on CLOSED ticket failed');
+      }
+
+      // 2) Tiket RESOLVED, customer mengirim pesan (tiket dibuka kembali),
+      //    agen men-resolve lagi, lalu pesan yang sama dikirim ulang -> ok: true,
+      //    status tiket tetap RESOLVED, tidak ada event REOPENED tambahan.
+
+      const sessReopen = await fetchJson('/widget/session', {
+        method: 'POST',
+        body: JSON.stringify({ name: `Customer Reopen ${runId}` }),
+      });
+      const custReopen = sessReopen.data.data.customer;
+      const visitorTokenReopen = sessReopen.data.data.visitorToken;
+      createdCustomerIds.push(custReopen.id);
+
+      const custSocketReopen = await createSocket({ visitorToken: visitorTokenReopen });
+      activeSockets.push(custSocketReopen);
+
+      // Create ticket
+      const firstAck = await emitWithAck(custSocketReopen, 'message:send', {
+        body: 'Pesan awal',
+        clientMessageId: crypto.randomUUID(),
+      });
+      const ticketReopenId = firstAck.ticket.id;
+      createdTicketIds.push(ticketReopenId);
+
+      // Claim and Resolve
+      await fetchJson(`/api/tickets/${ticketReopenId}/claim`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${agent1Token}` },
+      });
+      await fetchJson(`/api/tickets/${ticketReopenId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ status: 'RESOLVED' }),
+      });
+
+      // Customer sends message to reopen ticket
+      const reopenMsgId = crypto.randomUUID();
+      const reopenAck = await emitWithAck(custSocketReopen, 'message:send', {
+        body: 'Pesan untuk membuka kembali tiket',
+        clientMessageId: reopenMsgId,
+      });
+
+      // Agent resolves the ticket again
+      await fetchJson(`/api/tickets/${ticketReopenId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${adminToken}` },
+        body: JSON.stringify({ status: 'RESOLVED' }),
+      });
+
+      const reopenedEventsBefore = await prisma.ticketEvent.findMany({
+        where: { ticketId: ticketReopenId, type: 'REOPENED' },
+      });
+
+      // Customer resends the exact same reopenMsgId
+      const resendReopenAck = await emitWithAck(custSocketReopen, 'message:send', {
+        body: 'Pesan untuk membuka kembali tiket',
+        clientMessageId: reopenMsgId,
+      });
+
+      const currentTicketDb = await prisma.ticket.findUnique({
+        where: { id: ticketReopenId },
+      });
+      const reopenedEventsAfter = await prisma.ticketEvent.findMany({
+        where: { ticketId: ticketReopenId, type: 'REOPENED' },
+      });
+
+      if (
+        resendReopenAck.ok === true &&
+        currentTicketDb.status === 'RESOLVED' &&
+        reopenedEventsBefore.length === reopenedEventsAfter.length
+      ) {
+        console.log('PASS: resend pesan reopen pada tiket yang sudah di-resolve -> ok: true, status tetap RESOLVED, tidak ada event REOPENED tambahan');
+      } else {
+        console.error('FAIL: resend pesan reopen pada tiket resolved gagal', {
+          resendReopenAck,
+          status: currentTicketDb?.status,
+          eventsBefore: reopenedEventsBefore.length,
+          eventsAfter: reopenedEventsAfter.length,
+        });
+        throw new Error('Resend reopen message failed');
+      }
+    }
+
     // ── Scenario d: Tidak ada agen online -> customer menerima pesan SYSTEM ──
     {
       // Disconnect all sockets currently active so staff count = 0

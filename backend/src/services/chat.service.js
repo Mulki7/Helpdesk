@@ -7,8 +7,9 @@
  * - Uses PostgreSQL row-level locking (`SELECT FOR UPDATE` on customers row within a transaction)
  *   to ensure concurrent messages from the same customer are strictly serialized, preventing
  *   race conditions where multiple OPEN tickets could otherwise be created.
- * - Catches Prisma P2002 unique constraint violations on (ticketId, clientMessageId) and fetches
- *   the existing message gracefully to ensure duplicate sends in parallel always succeed with ok: true.
+ * - Checks for duplicate clientMessageId belonging to this customer FIRST, before any ticket decisions.
+ * - Catches Prisma P2002 unique constraint violations on (ticketId, clientMessageId) outside the
+ *   transaction and fetches the existing message gracefully to ensure duplicate sends always succeed with ok: true.
  */
 
 import { prisma } from '../config/prisma.js';
@@ -27,9 +28,10 @@ function serializeTicket(ticket) {
  * Handle a message sent by a customer.
  * - Customer cannot choose ticketId; server determines from latest ticket.
  * - Concurrency safe: locks customer row with SELECT FOR UPDATE in a transaction.
+ * - DUPLICATE CHECK IS FIRST: if message with same clientMessageId exists for this customer,
+ *   returns immediately without creating or reopening any ticket or recording events.
  * - If no ticket or CLOSED -> create new ticket (OPEN, subject = first 50 chars).
  * - If RESOLVED -> reopen to IN_PROGRESS.
- * - Idempotency by (ticketId, clientMessageId) with P2002 catch.
  * - Send SYSTEM message only if newly created or reopened AND no staff online.
  * @param {object} params { customer, body, clientMessageId }
  */
@@ -39,7 +41,27 @@ export async function sendCustomerMessage({ customer, body, clientMessageId }) {
       // 1. Acquire row lock on customer to serialize concurrent incoming requests from the same customer
       await tx.$executeRaw`SELECT 1 FROM "customers" WHERE id = ${customer.id} FOR UPDATE`;
 
-      // 2. Find customer's latest ticket under the lock
+      // 2. CHECK DUPLICATE FIRST (before any ticket creation or reopening decisions)
+      if (clientMessageId) {
+        const existing = await tx.message.findFirst({
+          where: {
+            clientMessageId,
+            ticket: { customerId: customer.id },
+          },
+          include: { ticket: true },
+        });
+
+        if (existing) {
+          return {
+            ok: true,
+            message: existing,
+            ticket: serializeTicket(existing.ticket),
+            isDuplicate: true,
+          };
+        }
+      }
+
+      // 3. Find customer's latest ticket under the lock
       const latestTicket = await tx.ticket.findFirst({
         where: { customerId: customer.id },
         orderBy: { id: 'desc' },
@@ -98,27 +120,6 @@ export async function sendCustomerMessage({ customer, body, clientMessageId }) {
         ticket = latestTicket;
       }
 
-      // 3. Idempotency check: (ticketId, clientMessageId) under lock
-      if (clientMessageId) {
-        const existing = await tx.message.findUnique({
-          where: {
-            ticketId_clientMessageId: {
-              ticketId: ticket.id,
-              clientMessageId,
-            },
-          },
-        });
-
-        if (existing) {
-          return {
-            ok: true,
-            message: existing,
-            ticket: serializeTicket(ticket),
-            isDuplicate: true,
-          };
-        }
-      }
-
       // 4. Create customer message
       const message = await tx.message.create({
         data: {
@@ -172,10 +173,14 @@ export async function sendCustomerMessage({ customer, body, clientMessageId }) {
     });
   } catch (err) {
     // If unique constraint violation occurred on (ticketId, clientMessageId),
-    // query OUTSIDE the aborted transaction using the clean Prisma client:
+    // query OUTSIDE the aborted transaction using the clean Prisma client,
+    // scoped to this customer's tickets:
     if (err.code === 'P2002' && clientMessageId) {
       const existing = await prisma.message.findFirst({
-        where: { clientMessageId },
+        where: {
+          clientMessageId,
+          ticket: { customerId: customer.id },
+        },
         include: { ticket: true },
       });
       if (existing) {
