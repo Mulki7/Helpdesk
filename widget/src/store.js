@@ -1,6 +1,6 @@
 /**
  * src/store.js
- * In-memory state for the widget + localStorage persistence for pending queue.
+ * In-memory state for the widget + localStorage persistence for pending queue and session.
  *
  * State shape:
  *   customer        — { id, name, email, visitorToken } | null
@@ -12,7 +12,7 @@
  *   isOpen          — whether the chat panel is visible
  *
  * PendingMsg shape:
- *   { clientMessageId, body, status: 'pending'|'failed', retries, noRetry }
+ *   { clientMessageId, body, status: 'pending'|'failed', retries, noRetry, createdAt }
  */
 
 const LS_KEY_TOKEN = 'hd_visitor_token';
@@ -33,6 +33,14 @@ export function clearSession() {
   localStorage.removeItem(LS_KEY_TOKEN);
   localStorage.removeItem(LS_KEY_CUSTOMER);
   localStorage.removeItem(LS_KEY_PENDING);
+
+  // Reset in-memory state
+  state.customer = null;
+  state.ticket = null;
+  state.messages = [];
+  state.pendingQueue = [];
+  state.lastMessageId = 0;
+  state.unreadCount = 0;
 }
 
 function loadPendingFromStorage() {
@@ -95,41 +103,45 @@ export function setOpen(open) {
  *   1. message.id (server-assigned)
  *   2. clientMessageId (for own pending messages matched to confirmed ones)
  *
- * Returns the list of actually-added messages.
+ * Returns the list of actually-added (new) messages.
  */
 export function addMessages(incoming) {
   const newMessages = Array.isArray(incoming) ? incoming : [incoming];
   const added = [];
 
   for (const msg of newMessages) {
-    const isDuplicate =
-      // Duplicate by server id
-      (msg.id && state.messages.some((m) => m.id === msg.id)) ||
-      // Duplicate by clientMessageId (own messages: same clientMessageId, different tabs / reconnects)
-      (msg.clientMessageId &&
-        state.messages.some(
-          (m) => m.clientMessageId && m.clientMessageId === msg.clientMessageId
-        ));
+    const existingById = msg.id && state.messages.find((m) => m.id === msg.id);
+    const existingByClient =
+      msg.clientMessageId &&
+      state.messages.find(
+        (m) => m.clientMessageId && m.clientMessageId === msg.clientMessageId
+      );
+
+    const isDuplicate = Boolean(existingById || existingByClient);
 
     if (!isDuplicate) {
-      state.messages.push(msg);
+      state.messages.push({ ...msg });
       if (msg.id && msg.id > state.lastMessageId) {
         state.lastMessageId = msg.id;
       }
       added.push(msg);
-    } else if (msg.id) {
-      // Update existing pending/local message with server-confirmed data (id, status)
-      const idx = state.messages.findIndex(
-        (m) => m.clientMessageId && m.clientMessageId === msg.clientMessageId
-      );
-      if (idx !== -1 && !state.messages[idx].id) {
-        state.messages[idx] = { ...state.messages[idx], ...msg };
-        if (msg.id > state.lastMessageId) state.lastMessageId = msg.id;
+    } else {
+      // Update existing message if it was pending and now confirmed with id/status
+      const target = existingByClient || existingById;
+      if (target) {
+        if (msg.id && !target.id) target.id = msg.id;
+        if (msg.status) target.status = msg.status;
+        else if (msg.id) target.status = 'sent';
+        if (msg.createdAt) target.createdAt = msg.createdAt;
+        if (msg.senderUser && !target.senderUser) target.senderUser = msg.senderUser;
+        if (msg.id && msg.id > state.lastMessageId) {
+          state.lastMessageId = msg.id;
+        }
       }
     }
   }
 
-  // Keep sorted by id (messages without id go to end)
+  // Keep sorted by id (pending messages without id stay in insertion order at bottom)
   state.messages.sort((a, b) => {
     if (a.id && b.id) return a.id - b.id;
     if (a.id) return -1;
@@ -170,19 +182,21 @@ export function confirmPending(clientMessageId, serverMessage) {
   savePendingToStorage(state.pendingQueue);
 
   // Merge server data into in-memory message
-  const idx = state.messages.findIndex(
+  const item = state.messages.find(
     (m) => m.clientMessageId === clientMessageId
   );
-  if (idx !== -1) {
-    state.messages[idx] = { ...state.messages[idx], ...serverMessage, status: 'sent' };
-    if (serverMessage.id && serverMessage.id > state.lastMessageId) {
+  if (item) {
+    if (serverMessage?.id) item.id = serverMessage.id;
+    item.status = 'sent';
+    if (serverMessage?.createdAt) item.createdAt = serverMessage.createdAt;
+    if (serverMessage?.id && serverMessage.id > state.lastMessageId) {
       state.lastMessageId = serverMessage.id;
     }
   }
 }
 
 /**
- * Mark a pending message as failed (validation error — no retry).
+ * Mark a pending message as failed (validation error — no automatic retry).
  */
 export function failPending(clientMessageId) {
   const item = state.pendingQueue.find((p) => p.clientMessageId === clientMessageId);
@@ -191,9 +205,9 @@ export function failPending(clientMessageId) {
     item.noRetry = true;
     savePendingToStorage(state.pendingQueue);
   }
-  const idx = state.messages.findIndex((m) => m.clientMessageId === clientMessageId);
-  if (idx !== -1) {
-    state.messages[idx] = { ...state.messages[idx], status: 'failed' };
+  const msg = state.messages.find((m) => m.clientMessageId === clientMessageId);
+  if (msg) {
+    msg.status = 'failed';
   }
 }
 

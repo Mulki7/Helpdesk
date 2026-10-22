@@ -21,6 +21,8 @@ web/dist/
 
 # Widget — ignore generated source maps / intermediate files, but COMMIT the built bundle
 widget/node_modules/
+!widget/dist/
+!widget/dist/widget.js
 widget/dist/*.map
 # widget/dist/widget.js is intentionally committed so /widget.js works without a build step
 

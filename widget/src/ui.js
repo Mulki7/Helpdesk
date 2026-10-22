@@ -460,6 +460,29 @@ export function appendMessage(msg) {
   const container = $('#hd-messages');
   if (!container) return;
 
+  // Deduplicate in DOM: match by msg.id OR clientMessageId
+  let existingRow = null;
+  if (msg.id) {
+    existingRow = _shadow.querySelector(`[data-msg-id="${msg.id}"]`);
+  }
+  if (!existingRow && msg.clientMessageId) {
+    existingRow = _shadow.querySelector(`[data-client-id="${msg.clientMessageId}"]`);
+  }
+
+  if (existingRow) {
+    // Already in DOM! Update attributes and status if needed without duplicating
+    if (msg.id) existingRow.dataset.msgId = String(msg.id);
+    if (msg.clientMessageId) existingRow.dataset.clientId = msg.clientMessageId;
+    if (msg.status === 'sent' || msg.id) {
+      existingRow.classList.remove('failed');
+      const statusEl = existingRow.querySelector('.hd-msg-status');
+      if (statusEl) {
+        statusEl.innerHTML = `${ICONS.check} <span>Terkirim</span>`;
+      }
+    }
+    return;
+  }
+
   const type = (msg.senderType || 'CUSTOMER').toLowerCase();
   const status = msg.status || 'sent'; // 'pending' | 'sent' | 'failed'
 

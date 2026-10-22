@@ -3,22 +3,23 @@
  * Widget entry point.
  *
  * Boot sequence:
- *  1. config.js already captured document.currentScript synchronously
+ *  1. config.js captured document.currentScript synchronously before async tasks
  *  2. Wait for DOM ready
- *  3. initUI() → Shadow DOM ready
+ *  3. initUI() → Shadow DOM attached and styled
  *  4. Load visitorToken from localStorage
- *     a. If none → showFormView(), wait for form submit
+ *     a. If none → showFormView(), bindFormSubmit()
  *     b. If exists → GET /widget/conversation
  *        - 401/404 → clearSession() + showFormView()
- *        - ok → show chat, init socket immediately (PRD: connect on load)
+ *        - ok → show chat, init socket immediately on page load (PRD item 2)
  *  5. Socket:
- *     - On connect → sync + flush queue
- *     - message:new → appendMessage (deduplicated)
+ *     - On connect → sync:request + flushQueue (mutex-guarded)
+ *     - Periodic retry timer (5-10s)
+ *     - message:new → deduplicated and appended (or status updated)
  *     - ticket:updated → update state
  *  6. Form submit → POST /widget/session → init chat + socket
  */
 
-// config.js is the FIRST import so document.currentScript is captured sync
+// config.js MUST be the very first import to read document.currentScript synchronously
 import { config } from './config.js'; // eslint-disable-line no-unused-vars
 import { postSession, getConversation } from './api.js';
 import {
@@ -28,11 +29,11 @@ import {
   setCustomer,
   setTicket,
   setMessages,
+  addMessages,
   enqueuePending,
   confirmPending,
   failPending,
   getState,
-  incrementUnread,
 } from './store.js';
 import {
   initUI,
@@ -43,14 +44,14 @@ import {
   setFormLoading,
   renderMessages,
   appendMessage,
-  updatePresence,
+  updateMessageStatus,
   showClosedNotice,
-  openPanel,
-  updateBadge,
   bindInputBar,
+  on as uiOn,
 } from './ui.js';
 import {
   initSocket,
+  destroySocket,
   sendMessage,
 } from './socket.js';
 
@@ -67,19 +68,29 @@ function onDOMReady(fn) {
 onDOMReady(boot);
 
 async function boot() {
-  // 1. Build Shadow DOM
+  // 1. Build Shadow DOM & UI shell
   initUI();
+
+  // Listen to session invalidation (e.g. socket auth rejection)
+  uiOn('session:invalid', () => {
+    destroySocket();
+    clearSession();
+    renderMessages([]);
+    showFormView();
+    bindFormSubmit();
+    setFormError('Sesi berakhir. Silakan masukkan nama kembali.');
+  });
 
   const token = loadVisitorToken();
 
   if (!token) {
-    // No session → show registration form
+    // No visitor token saved → show name registration form
     showFormView();
     bindFormSubmit();
     return;
   }
 
-  // Has token → try to load conversation
+  // Token exists → load conversation and connect socket
   await loadConversation(token);
 }
 
@@ -88,7 +99,8 @@ async function boot() {
 async function loadConversation(token) {
   try {
     const data = await getConversation(token);
-    // Success: populate state
+
+    // Populate store
     setCustomer(data.customer);
     setTicket(data.ticket);
     setMessages(data.messages || []);
@@ -100,26 +112,20 @@ async function loadConversation(token) {
       showClosedNotice(true);
     }
 
-    // Bind input
     bindInputBar(handleSend);
 
-    // Connect socket immediately (do not wait for bubble click)
+    // Requirement 2: Connect socket immediately when page loads if visitorToken exists
     initSocket(token);
 
-    // Seed presence from initial ticket data
-    // (will be updated by presence:update event on connect)
-
   } catch (err) {
-    if (err.status === 401 || err.status === 404) {
-      // Invalid / expired token → reset and show form
-      clearSession();
-      showFormView();
-      bindFormSubmit();
-    } else {
-      // Network or server error — show form with error
-      clearSession();
-      showFormView();
-      bindFormSubmit();
+    // Requirement 1: If 401 or 404, remove token and local data, show name form again
+    destroySocket();
+    clearSession();
+    renderMessages([]);
+    showFormView();
+    bindFormSubmit();
+
+    if (err.status !== 401 && err.status !== 404) {
       setFormError('Gagal memuat percakapan. Silakan coba lagi.');
     }
   }
@@ -141,7 +147,6 @@ function bindFormSubmit() {
 
   btn.addEventListener('click', handleFormSubmit);
 
-  // Also allow Enter in name field
   const nameInput = document
     .querySelector('#hd-widget-host')
     ?.shadowRoot?.querySelector('#hd-name-input');
@@ -177,7 +182,7 @@ async function handleFormSubmit() {
     renderMessages([]);
     bindInputBar(handleSend);
 
-    // Connect socket
+    // Connect socket on session start
     initSocket(result.visitorToken);
 
   } catch (err) {
@@ -194,15 +199,14 @@ async function handleSend(body) {
   const token = loadVisitorToken();
   if (!token) return;
 
-  // If last ticket was CLOSED: reset UI for new ticket
+  // Reset closed notice if opening new ticket
   const state = getState();
   if (state.ticket?.status === 'CLOSED') {
     showClosedNotice(false);
     setTicket(null);
-    // Don't clear messages — server will create new ticket and message:new will arrive
   }
 
-  // Optimistic UI: add pending message
+  // Optimistic UI: enqueue to pendingQueue, record in state.messages, and append to DOM
   const pendingMsg = {
     clientMessageId,
     body,
@@ -212,7 +216,9 @@ async function handleSend(body) {
     noRetry: false,
     createdAt: new Date().toISOString(),
   };
+
   enqueuePending(pendingMsg);
+  addMessages(pendingMsg);
   appendMessage(pendingMsg);
 
   // Send via socket
@@ -220,24 +226,17 @@ async function handleSend(body) {
 
   if (ack?.ok) {
     confirmPending(clientMessageId, ack.message);
-    // Update ticket state if new ticket was created
     if (ack.ticket) {
       setTicket(ack.ticket);
     }
-    // updateMessageStatus is called inside ui's internal 'message:confirmed' event
-    // but we can also do it directly here for immediate feedback
-    import('./ui.js').then(({ updateMessageStatus }) => {
-      updateMessageStatus(clientMessageId, 'sent', ack.message);
-    });
+    updateMessageStatus(clientMessageId, 'sent', ack.message);
   } else if (ack?.ok === false) {
-    if (ack.error?.code === 'RATE_LIMITED' || !ack.error?.code) {
-      // Keep pending — will retry
+    if (ack.code === 'RATE_LIMITED' || ack.code === 'TIMEOUT' || ack.code === 'DISCONNECTED') {
+      // Requirement 4: RATE_LIMITED and timeout stay pending, retried with delay
     } else {
-      // Permanent validation error — mark failed
+      // Requirement 4: Validation error marked as "gagal terkirim" with discard option, not retried
       failPending(clientMessageId);
-      import('./ui.js').then(({ updateMessageStatus }) => {
-        updateMessageStatus(clientMessageId, 'failed');
-      });
+      updateMessageStatus(clientMessageId, 'failed');
     }
   }
 }

@@ -20,7 +20,7 @@ import widgetRoutes from './routes/widget.routes.js';
 import { initSocketServer } from './sockets/index.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Paths to widget artefacts (relative to project root, not src/)
+// Absolute paths to widget artefacts (monorepo: backend/src/ → widget/)
 const WIDGET_JS = path.resolve(__dirname, '../../widget/dist/widget.js');
 const DEMO_HTML = path.resolve(__dirname, '../../widget/demo.html');
 
@@ -39,7 +39,8 @@ app.use(express.json({ limit: '10kb' }));
 const allowedOrigins = env.CORS_ORIGINS.split(',').map((o) => o.trim());
 
 app.use((req, res, next) => {
-  const isWidgetPath = req.path.startsWith('/widget') || req.path.startsWith('/api/widget');
+  const isWidgetPath = req.path.startsWith('/widget') || req.path.startsWith('/api/widget')
+    || req.path === '/demo';
   const origin = req.headers.origin;
 
   if (isWidgetPath) {
@@ -59,15 +60,11 @@ app.use((req, res, next) => {
   return next();
 });
 
-// ── Routes ────────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/tickets', ticketRoutes);
-app.use('/api/widget', widgetRoutes);
-app.use('/widget', widgetRoutes);
-
 // ── Static widget bundle & demo page ─────────────────────────────────────────
-// Serve built widget bundle at /widget.js (CORS: all origins, set above)
+// IMPORTANT: These must be registered BEFORE app.use('/widget', widgetRoutes)
+// because Express prefix-matches '/widget' and would intercept '/widget.js'.
+
+// Serve built widget JS bundle at /widget.js
 app.get('/widget.js', (_req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
@@ -84,7 +81,7 @@ app.get('/widget.js', (_req, res) => {
   });
 });
 
-// Demo landing page
+// Demo landing page "Toko Contoh"
 app.get('/demo', (_req, res) => {
   res.sendFile(DEMO_HTML, (err) => {
     if (err) {
@@ -92,6 +89,13 @@ app.get('/demo', (_req, res) => {
     }
   });
 });
+
+// ── API & widget REST routes ──────────────────────────────────────────────────
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/widget', widgetRoutes);
+app.use('/widget', widgetRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
