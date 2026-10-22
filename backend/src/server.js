@@ -6,6 +6,8 @@
 
 import './config/env.js'; // Validate env vars first — will exit on error
 import http from 'node:http';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env.js';
@@ -16,6 +18,11 @@ import ticketRoutes from './routes/ticket.routes.js';
 import userRoutes from './routes/user.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
 import { initSocketServer } from './sockets/index.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Paths to widget artefacts (relative to project root, not src/)
+const WIDGET_JS = path.resolve(__dirname, '../../widget/dist/widget.js');
+const DEMO_HTML = path.resolve(__dirname, '../../widget/demo.html');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -58,6 +65,33 @@ app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/widget', widgetRoutes);
 app.use('/widget', widgetRoutes);
+
+// ── Static widget bundle & demo page ─────────────────────────────────────────
+// Serve built widget bundle at /widget.js (CORS: all origins, set above)
+app.get('/widget.js', (_req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Content-Type', 'application/javascript; charset=utf-8');
+  res.sendFile(WIDGET_JS, (err) => {
+    if (err) {
+      console.error('[server] widget.js not found — run npm run build:widget', err.message);
+      res.status(404).json({
+        error: {
+          code: 'NOT_FOUND',
+          message: 'widget.js belum dibangun. Jalankan: npm run build:widget',
+        },
+      });
+    }
+  });
+});
+
+// Demo landing page
+app.get('/demo', (_req, res) => {
+  res.sendFile(DEMO_HTML, (err) => {
+    if (err) {
+      res.status(404).send('Demo page not found.');
+    }
+  });
+});
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Toko Contoh — demo website untuk live chat helpdesk widget." />
+  <title>Toko Contoh — Belanja Online Mudah &amp; Terpercaya</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand: #2563eb;
+      --brand-light: #eff6ff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+    }
+
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: #f9fafb;
+      line-height: 1.6;
+    }
+
+    /* ── Header / Navbar ── */
+    header {
+      background: var(--brand);
+      color: #fff;
+      padding: 0 5%;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    nav {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .logo { font-size: 20px; font-weight: 700; letter-spacing: -.3px; }
+    .logo span { opacity: .7; font-weight: 400; font-size: 14px; margin-left: 6px; }
+    .nav-links { display: flex; gap: 24px; list-style: none; }
+    .nav-links a { color: rgba(255,255,255,.85); text-decoration: none; font-size: 14px; transition: color .15s; }
+    .nav-links a:hover { color: #fff; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 60%, #60a5fa 100%);
+      color: #fff; text-align: center;
+      padding: 80px 5% 90px;
+    }
+    .hero h1 { font-size: clamp(28px, 5vw, 48px); font-weight: 800; margin-bottom: 16px; }
+    .hero p { font-size: 16px; opacity: .88; max-width: 520px; margin: 0 auto 32px; }
+    .hero-btn {
+      display: inline-block; background: #fff; color: var(--brand);
+      padding: 13px 32px; border-radius: 30px;
+      font-weight: 700; font-size: 15px; text-decoration: none;
+      box-shadow: 0 4px 14px rgba(0,0,0,.15);
+      transition: transform .15s, box-shadow .15s;
+    }
+    .hero-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+
+    /* ── Section ── */
+    section { padding: 64px 5%; max-width: 1100px; margin: 0 auto; }
+    section h2 { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    section .sub { color: var(--muted); margin-bottom: 36px; font-size: 14px; }
+
+    /* ── Product cards ── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+    .card {
+      background: #fff; border-radius: 14px; overflow: hidden;
+      box-shadow: 0 1px 4px rgba(0,0,0,.08);
+      transition: box-shadow .2s, transform .15s;
+    }
+    .card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.12); transform: translateY(-3px); }
+    .card-img {
+      width: 100%; aspect-ratio: 4/3; object-fit: cover;
+      background: var(--brand-light);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 40px;
+    }
+    .card-body { padding: 14px; }
+    .card-name { font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+    .card-price { color: var(--brand); font-weight: 700; font-size: 15px; }
+    .card-old { color: var(--muted); font-size: 12px; text-decoration: line-through; margin-left: 4px; }
+    .card-tag {
+      display: inline-block; background: #dcfce7; color: #166534;
+      font-size: 10px; font-weight: 600; border-radius: 4px;
+      padding: 2px 6px; margin-bottom: 6px;
+    }
+
+    /* ── Feature list ── */
+    .features { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 24px; }
+    .feature { background: #fff; border-radius: 14px; padding: 24px; box-shadow: 0 1px 4px rgba(0,0,0,.07); }
+    .feature-icon { font-size: 32px; margin-bottom: 10px; }
+    .feature h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+    .feature p { font-size: 13px; color: var(--muted); }
+
+    /* ── Promo banner ── */
+    .promo {
+      background: linear-gradient(90deg, #f59e0b, #ef4444);
+      border-radius: 16px; color: #fff;
+      padding: 28px 32px; display: flex; align-items: center;
+      justify-content: space-between; flex-wrap: wrap; gap: 16px;
+      margin: 0 5% 64px; max-width: 1100px; margin-left: auto; margin-right: auto;
+    }
+    .promo h3 { font-size: 20px; font-weight: 700; }
+    .promo p { opacity: .9; font-size: 14px; margin-top: 4px; }
+    .promo-btn {
+      background: #fff; color: #dc2626; font-weight: 700;
+      padding: 10px 24px; border-radius: 8px; text-decoration: none;
+      font-size: 14px; white-space: nowrap;
+      transition: opacity .15s;
+    }
+    .promo-btn:hover { opacity: .9; }
+
+    /* ── Footer ── */
+    footer {
+      background: #111827; color: #9ca3af;
+      padding: 40px 5%; margin-top: 40px;
+    }
+    .footer-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 32px; max-width: 1100px; margin: 0 auto 32px; }
+    .footer-col h4 { color: #f9fafb; font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+    .footer-col ul { list-style: none; }
+    .footer-col li { margin-bottom: 6px; }
+    .footer-col a { color: #9ca3af; text-decoration: none; font-size: 13px; transition: color .15s; }
+    .footer-col a:hover { color: #f9fafb; }
+    .footer-bottom { text-align: center; font-size: 12px; border-top: 1px solid #1f2937; padding-top: 24px; max-width: 1100px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+
+  <!-- Navbar -->
+  <header>
+    <nav>
+      <div class="logo">🛍️ Toko Contoh <span>Online Shop</span></div>
+      <ul class="nav-links">
+        <li><a href="#produk">Produk</a></li>
+        <li><a href="#fitur">Keunggulan</a></li>
+        <li><a href="#promo">Promo</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Belanja Mudah,<br />Pengiriman Cepat</h1>
+    <p>Temukan ribuan produk pilihan dengan harga terbaik. Gratis ongkir untuk pembelian di atas Rp 100.000!</p>
+    <a href="#produk" class="hero-btn">Lihat Produk</a>
+  </div>
+
+  <!-- Products -->
+  <section id="produk">
+    <h2>Produk Terlaris</h2>
+    <p class="sub">Pilihan terbaik minggu ini — stok terbatas, pesan sekarang!</p>
+    <div class="cards">
+
+      <div class="card">
+        <div class="card-img">🎧</div>
+        <div class="card-body">
+          <span class="card-tag">TERLARIS</span>
+          <div class="card-name">Headphone Nirkabel Pro</div>
+          <div class="card-price">Rp 349.000 <span class="card-old">Rp 499.000</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-img">⌚</div>
+        <div class="card-body">
+          <span class="card-tag">BARU</span>
+          <div class="card-name">Smartwatch Fitness X3</div>
+          <div class="card-price">Rp 589.000 <span class="card-old">Rp 799.000</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-img">📱</div>
+        <div class="card-body">
+          <span class="card-tag">DISKON 30%</span>
+          <div class="card-name">Phone Stand Magnetik</div>
+          <div class="card-price">Rp 89.000 <span class="card-old">Rp 129.000</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-img">💡</div>
+        <div class="card-body">
+          <div class="card-name">Lampu LED Smart RGB</div>
+          <div class="card-price">Rp 149.000 <span class="card-old">Rp 199.000</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-img">🎒</div>
+        <div class="card-body">
+          <span class="card-tag">TERLARIS</span>
+          <div class="card-name">Tas Ransel Laptop 15"</div>
+          <div class="card-price">Rp 259.000 <span class="card-old">Rp 359.000</span></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-img">🖱️</div>
+        <div class="card-body">
+          <div class="card-name">Mouse Nirkabel Ergonomis</div>
+          <div class="card-price">Rp 179.000 <span class="card-old">Rp 249.000</span></div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Promo Banner -->
+  <div class="promo" id="promo">
+    <div>
+      <h3>🔥 Flash Sale Hari Ini!</h3>
+      <p>Diskon hingga 50% untuk semua kategori elektronik. Berakhir 23:59 WIB.</p>
+    </div>
+    <a href="#produk" class="promo-btn">Belanja Sekarang</a>
+  </div>
+
+  <!-- Features -->
+  <section id="fitur">
+    <h2>Kenapa Toko Contoh?</h2>
+    <p class="sub">Kami berkomitmen memberikan pengalaman belanja terbaik.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🚚</div>
+        <h3>Gratis Ongkir</h3>
+        <p>Gratis ongkos kirim ke seluruh Indonesia untuk pembelian di atas Rp 100.000.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🔒</div>
+        <h3>Pembayaran Aman</h3>
+        <p>Transaksi dienkripsi SSL. Didukung transfer bank, QRIS, dan dompet digital.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">↩️</div>
+        <h3>Retur 7 Hari</h3>
+        <p>Tidak puas? Kembalikan produk dalam 7 hari, uang kembali penuh tanpa syarat.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">💬</div>
+        <h3>CS 24/7</h3>
+        <p>Tim customer service kami siap membantu kapan saja lewat live chat di pojok kanan bawah.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-grid">
+      <div class="footer-col">
+        <h4>🛍️ Toko Contoh</h4>
+        <p style="font-size:13px;margin-top:6px">Website demo untuk live chat helpdesk widget. Bukan toko nyata.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Produk</h4>
+        <ul>
+          <li><a href="#">Elektronik</a></li>
+          <li><a href="#">Fashion</a></li>
+          <li><a href="#">Rumah Tangga</a></li>
+          <li><a href="#">Olahraga</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Bantuan</h4>
+        <ul>
+          <li><a href="#">Cara Pesan</a></li>
+          <li><a href="#">Status Pesanan</a></li>
+          <li><a href="#">Kebijakan Retur</a></li>
+          <li><a href="#">Hubungi Kami</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Perusahaan</h4>
+        <ul>
+          <li><a href="#">Tentang Kami</a></li>
+          <li><a href="#">Karir</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Kebijakan Privasi</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      © 2026 Toko Contoh. Demo aplikasi helpdesk — Ciheul Technologies.
+    </div>
+  </footer>
+
+  <!-- ✅ Live Chat Widget — satu tag saja -->
+  <script src="/widget.js" data-server=""></script>
+
+</body>
+</html>

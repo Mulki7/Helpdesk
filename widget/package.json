@@ -1,0 +1,16 @@
+{
+  "name": "helpdesk-widget",
+  "version": "1.0.0",
+  "description": "Helpdesk live chat widget — vanilla JS, bundled with esbuild",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "build:watch": "node build.js --watch"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.4"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  }
+}
