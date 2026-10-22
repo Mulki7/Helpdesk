@@ -23,6 +23,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Absolute paths to widget artefacts (monorepo: backend/src/ → widget/)
 const WIDGET_JS = path.resolve(__dirname, '../../widget/dist/widget.js');
 const DEMO_HTML = path.resolve(__dirname, '../../widget/demo.html');
+// Absolute paths to web app artefacts (monorepo: backend/src/ → web/)
+const WEB_DIST = path.resolve(__dirname, '../../web/dist');
+const WEB_INDEX = path.resolve(WEB_DIST, 'index.html');
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -31,7 +34,8 @@ const httpServer = http.createServer(app);
 const io = initSocketServer(httpServer);
 
 // ── Security & parsing ────────────────────────────────────────────────────────
-app.use(helmet());
+// Disable CSP in Helmet so React SPA scripts and styles load without restriction
+app.use(helmet({ contentSecurityPolicy: false }));
 app.use(express.json({ limit: '10kb' }));
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
@@ -86,6 +90,19 @@ app.get('/demo', (_req, res) => {
   res.sendFile(DEMO_HTML, (err) => {
     if (err) {
       res.status(404).send('Demo page not found.');
+    }
+  });
+});
+
+// ── Web App (React SPA) ───────────────────────────────────────────────────────
+// Serve static assets under /app (CSS, JS, images)
+app.use('/app', express.static(WEB_DIST));
+
+// SPA fallback: any sub-route under /app returns index.html for client-side routing
+app.get(['/app', '/app/*'], (_req, res) => {
+  res.sendFile(WEB_INDEX, (err) => {
+    if (err) {
+      res.status(404).send('Web app belum dibangun. Jalankan: npm run build:web');
     }
   });
 });

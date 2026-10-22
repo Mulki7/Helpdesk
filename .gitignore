@@ -17,7 +17,8 @@ mobile/build/
 
 # Web
 web/node_modules/
-web/dist/
+!web/dist/
+web/dist/*.map
 
 # Widget — ignore generated source maps / intermediate files, but COMMIT the built bundle
 widget/node_modules/
