@@ -4,6 +4,7 @@
  */
 
 import { prisma } from '../config/prisma.js';
+import { eventBus } from '../events/eventBus.js';
 import { httpError } from '../utils/httpError.js';
 import { formatTicketNumber } from '../utils/ticketNumber.js';
 
@@ -232,7 +233,9 @@ export async function claimTicket(ticketId, user) {
     },
   });
 
-  return getTicketById(ticketId);
+  const updatedTicket = await getTicketById(ticketId);
+  eventBus.emit('ticket:updated', { ticket: updatedTicket, customerId: updatedTicket.customerId });
+  return updatedTicket;
 }
 
 /**
@@ -290,7 +293,9 @@ export async function releaseTicket(ticketId, user) {
     });
   });
 
-  return getTicketById(ticketId);
+  const updatedTicket = await getTicketById(ticketId);
+  eventBus.emit('ticket:updated', { ticket: updatedTicket, customerId: updatedTicket.customerId });
+  return updatedTicket;
 }
 
 /**
@@ -350,7 +355,9 @@ export async function assignTicket(ticketId, targetAgentId, user) {
     });
   });
 
-  return getTicketById(ticketId);
+  const updatedTicket = await getTicketById(ticketId);
+  eventBus.emit('ticket:updated', { ticket: updatedTicket, customerId: updatedTicket.customerId });
+  return updatedTicket;
 }
 
 /**
@@ -449,5 +456,7 @@ export async function updateTicket(ticketId, { status, priority }, user) {
     }
   });
 
-  return getTicketById(ticketId);
+  const updatedTicket = await getTicketById(ticketId);
+  eventBus.emit('ticket:updated', { ticket: updatedTicket, customerId: updatedTicket.customerId });
+  return updatedTicket;
 }

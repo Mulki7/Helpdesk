@@ -6,6 +6,8 @@
 
 import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
+import { eventBus } from '../events/eventBus.js';
+import { formatTicketNumber } from '../utils/ticketNumber.js';
 
 /**
  * Perform one cycle of auto-closing eligible RESOLVED tickets.
@@ -22,18 +24,22 @@ export async function closeExpiredTickets() {
           lte: cutoffDate,
         },
       },
-      select: { id: true },
+      select: { id: true, customerId: true },
     });
 
     if (expiredTickets.length === 0) return;
 
-    for (const { id } of expiredTickets) {
-      await prisma.$transaction(async (tx) => {
-        await tx.ticket.update({
+    for (const { id, customerId } of expiredTickets) {
+      const updated = await prisma.$transaction(async (tx) => {
+        const ticket = await tx.ticket.update({
           where: { id },
           data: {
             status: 'CLOSED',
             closedAt: new Date(),
+          },
+          include: {
+            customer: { select: { id: true, name: true, email: true } },
+            assignedAgent: { select: { id: true, name: true } },
           },
         });
 
@@ -46,6 +52,13 @@ export async function closeExpiredTickets() {
             newValue: 'CLOSED',
           },
         });
+
+        return ticket;
+      });
+
+      eventBus.emit('ticket:updated', {
+        ticket: { ...updated, number: formatTicketNumber(updated.id) },
+        customerId,
       });
     }
 

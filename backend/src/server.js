@@ -1,10 +1,11 @@
 /**
  * server.js
  * Application entry point.
- * Sets up Express, middleware, routes, and starts listening.
+ * Sets up Express, HTTP server, Socket.IO, middleware, routes, and starts listening.
  */
 
 import './config/env.js'; // Validate env vars first — will exit on error
+import http from 'node:http';
 import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env.js';
@@ -14,8 +15,13 @@ import authRoutes from './routes/auth.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import userRoutes from './routes/user.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
+import { initSocketServer } from './sockets/index.js';
 
 const app = express();
+const httpServer = http.createServer(app);
+
+// Initialize Socket.IO attached to HTTP server
+const io = initSocketServer(httpServer);
 
 // ── Security & parsing ────────────────────────────────────────────────────────
 app.use(helmet());
@@ -67,10 +73,11 @@ app.use('/api/*', (_req, res) => {
 app.use(errorHandler);
 
 // ── Start ─────────────────────────────────────────────────────────────────────
-app.listen(env.PORT, () => {
+httpServer.listen(env.PORT, () => {
   console.log(`🚀 Server berjalan di http://localhost:${env.PORT}`);
   console.log(`   NODE_ENV : ${env.NODE_ENV}`);
   startAutoCloseJob();
 });
 
+export { app, httpServer, io };
 export default app;

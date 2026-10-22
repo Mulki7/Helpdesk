@@ -6,6 +6,7 @@
 
 import bcrypt from 'bcrypt';
 import prisma from '../config/prisma.js';
+import { eventBus } from '../events/eventBus.js';
 import { httpError } from '../utils/httpError.js';
 import { BCRYPT_ROUNDS } from './auth.service.js';
 
@@ -90,12 +91,13 @@ export async function updateUser(targetId, actorId, data) {
     data: updateData,
   });
 
-  // If deactivated, revoke all active refresh tokens
+  // If deactivated, revoke all active refresh tokens and disconnect sockets
   if (isActive === false) {
     await prisma.refreshToken.updateMany({
       where: { userId: targetId, revokedAt: null },
       data: { revokedAt: new Date() },
     });
+    eventBus.emit('user:deactivated', targetId);
   }
 
   return sanitizeUser(updated);
