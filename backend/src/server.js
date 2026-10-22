@@ -8,9 +8,12 @@ import './config/env.js'; // Validate env vars first — will exit on error
 import express from 'express';
 import helmet from 'helmet';
 import { env } from './config/env.js';
+import { startAutoCloseJob } from './jobs/autoCloseTickets.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.routes.js';
+import ticketRoutes from './routes/ticket.routes.js';
 import userRoutes from './routes/user.routes.js';
+import widgetRoutes from './routes/widget.routes.js';
 
 const app = express();
 
@@ -18,17 +21,27 @@ const app = express();
 app.use(helmet());
 app.use(express.json({ limit: '10kb' }));
 
-// ── CORS (basic setup for Phase 1; Socket.IO CORS configured in Phase 2) ─────
+// ── CORS ──────────────────────────────────────────────────────────────────────
+// Widget endpoints allow all origins (*); staff endpoints follow CORS_ORIGINS
 const allowedOrigins = env.CORS_ORIGINS.split(',').map((o) => o.trim());
 
 app.use((req, res, next) => {
+  const isWidgetPath = req.path.startsWith('/widget') || req.path.startsWith('/api/widget');
   const origin = req.headers.origin;
-  if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-    res.setHeader('Access-Control-Allow-Origin', origin ?? '*');
+
+  if (isWidgetPath) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Visitor-Token');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  } else {
+    if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      res.setHeader('Access-Control-Allow-Origin', origin ?? '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Visitor-Token');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    }
   }
+
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   return next();
 });
@@ -36,6 +49,9 @@ app.use((req, res, next) => {
 // ── Routes ────────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/tickets', ticketRoutes);
+app.use('/api/widget', widgetRoutes);
+app.use('/widget', widgetRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
@@ -54,6 +70,7 @@ app.use(errorHandler);
 app.listen(env.PORT, () => {
   console.log(`🚀 Server berjalan di http://localhost:${env.PORT}`);
   console.log(`   NODE_ENV : ${env.NODE_ENV}`);
+  startAutoCloseJob();
 });
 
 export default app;
