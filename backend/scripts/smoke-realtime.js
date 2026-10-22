@@ -322,6 +322,33 @@ async function runSmokeTests() {
         throw new Error('Scenario h failed');
       }
 
+      // ── Scenario baru 3: Staf mengirim 5 message:send paralel dengan clientMessageId sama ──
+      const assigneeToken = isAgent1Assignee ? agent1Token : agent2Token;
+      const assigneeSocket = isAgent1Assignee ? agentSocket : (await createSocket({ token: agent2Token }));
+      if (!isAgent1Assignee) activeSockets.push(assigneeSocket);
+
+      const staffConcurrentMsgId = crypto.randomUUID();
+      const staffConcurrentAcks = await Promise.all([
+        emitWithAck(assigneeSocket, 'message:send', { ticketId: ticketIdA, body: 'Balasan staf paralel idempotensi', clientMessageId: staffConcurrentMsgId }),
+        emitWithAck(assigneeSocket, 'message:send', { ticketId: ticketIdA, body: 'Balasan staf paralel idempotensi', clientMessageId: staffConcurrentMsgId }),
+        emitWithAck(assigneeSocket, 'message:send', { ticketId: ticketIdA, body: 'Balasan staf paralel idempotensi', clientMessageId: staffConcurrentMsgId }),
+        emitWithAck(assigneeSocket, 'message:send', { ticketId: ticketIdA, body: 'Balasan staf paralel idempotensi', clientMessageId: staffConcurrentMsgId }),
+        emitWithAck(assigneeSocket, 'message:send', { ticketId: ticketIdA, body: 'Balasan staf paralel idempotensi', clientMessageId: staffConcurrentMsgId }),
+      ]);
+
+      const allStaffAcksOk = staffConcurrentAcks.every((ack) => ack.ok === true);
+      const msgsStaffRes = await fetchJson(`/api/tickets/${ticketIdA}/messages`, {
+        headers: { Authorization: `Bearer ${assigneeToken}` },
+      });
+      const matchingStaffMsgs = msgsStaffRes.data.data.filter((m) => m.clientMessageId === staffConcurrentMsgId);
+
+      if (allStaffAcksOk && matchingStaffMsgs.length === 1) {
+        console.log('PASS: staf kirim 5 message:send dengan clientMessageId sama paralel -> semua ok: true & 1 pesan di database');
+      } else {
+        console.error('FAIL: staf kirim 5 message:send paralel gagal', { allStaffAcksOk, count: matchingStaffMsgs.length });
+        throw new Error('Staff 5 parallel message:send failed');
+      }
+
       // ── Scenario e: Customer chat saat RESOLVED -> tiket kembali IN_PROGRESS ──
       // Mark ticket as RESOLVED
       await fetchJson(`/api/tickets/${ticketIdA}`, {

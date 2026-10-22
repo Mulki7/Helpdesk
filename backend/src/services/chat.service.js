@@ -34,104 +34,72 @@ function serializeTicket(ticket) {
  * @param {object} params { customer, body, clientMessageId }
  */
 export async function sendCustomerMessage({ customer, body, clientMessageId }) {
-  return prisma.$transaction(async (tx) => {
-    // 1. Acquire row lock on customer to serialize concurrent incoming requests from the same customer
-    await tx.$executeRaw`SELECT 1 FROM "customers" WHERE id = ${customer.id} FOR UPDATE`;
+  try {
+    return await prisma.$transaction(async (tx) => {
+      // 1. Acquire row lock on customer to serialize concurrent incoming requests from the same customer
+      await tx.$executeRaw`SELECT 1 FROM "customers" WHERE id = ${customer.id} FOR UPDATE`;
 
-    // 2. Find customer's latest ticket under the lock
-    const latestTicket = await tx.ticket.findFirst({
-      where: { customerId: customer.id },
-      orderBy: { id: 'desc' },
-    });
-
-    let ticket = null;
-    let isNewTicket = false;
-    let isReopened = false;
-
-    if (!latestTicket || latestTicket.status === 'CLOSED') {
-      // Create new ticket
-      const subject = body.slice(0, 50);
-      ticket = await tx.ticket.create({
-        data: {
-          customerId: customer.id,
-          subject,
-          status: 'OPEN',
-          priority: 'MEDIUM',
-          lastMessageAt: new Date(),
-        },
+      // 2. Find customer's latest ticket under the lock
+      const latestTicket = await tx.ticket.findFirst({
+        where: { customerId: customer.id },
+        orderBy: { id: 'desc' },
       });
 
-      await tx.ticketEvent.create({
-        data: {
-          ticketId: ticket.id,
-          actorUserId: null,
-          type: 'CREATED',
-        },
-      });
+      let ticket = null;
+      let isNewTicket = false;
+      let isReopened = false;
 
-      isNewTicket = true;
-    } else if (latestTicket.status === 'RESOLVED') {
-      // Reopen ticket
-      ticket = await tx.ticket.update({
-        where: { id: latestTicket.id },
-        data: {
-          status: 'IN_PROGRESS',
-          resolvedAt: null,
-          lastMessageAt: new Date(),
-        },
-      });
-
-      await tx.ticketEvent.create({
-        data: {
-          ticketId: ticket.id,
-          actorUserId: null,
-          type: 'REOPENED',
-          oldValue: 'RESOLVED',
-          newValue: 'IN_PROGRESS',
-        },
-      });
-
-      isReopened = true;
-    } else {
-      // Keep using current OPEN or IN_PROGRESS ticket
-      ticket = latestTicket;
-    }
-
-    // 3. Idempotency check: (ticketId, clientMessageId)
-    if (clientMessageId) {
-      const existing = await tx.message.findUnique({
-        where: {
-          ticketId_clientMessageId: {
-            ticketId: ticket.id,
-            clientMessageId,
+      if (!latestTicket || latestTicket.status === 'CLOSED') {
+        // Create new ticket
+        const subject = body.slice(0, 50);
+        ticket = await tx.ticket.create({
+          data: {
+            customerId: customer.id,
+            subject,
+            status: 'OPEN',
+            priority: 'MEDIUM',
+            lastMessageAt: new Date(),
           },
-        },
-      });
+        });
 
-      if (existing) {
-        return {
-          ok: true,
-          message: existing,
-          ticket: serializeTicket(ticket),
-          isDuplicate: true,
-        };
+        await tx.ticketEvent.create({
+          data: {
+            ticketId: ticket.id,
+            actorUserId: null,
+            type: 'CREATED',
+          },
+        });
+
+        isNewTicket = true;
+      } else if (latestTicket.status === 'RESOLVED') {
+        // Reopen ticket
+        ticket = await tx.ticket.update({
+          where: { id: latestTicket.id },
+          data: {
+            status: 'IN_PROGRESS',
+            resolvedAt: null,
+            lastMessageAt: new Date(),
+          },
+        });
+
+        await tx.ticketEvent.create({
+          data: {
+            ticketId: ticket.id,
+            actorUserId: null,
+            type: 'REOPENED',
+            oldValue: 'RESOLVED',
+            newValue: 'IN_PROGRESS',
+          },
+        });
+
+        isReopened = true;
+      } else {
+        // Keep using current OPEN or IN_PROGRESS ticket
+        ticket = latestTicket;
       }
-    }
 
-    // 4. Create customer message with P2002 error guard against concurrent duplicates
-    let message;
-    try {
-      message = await tx.message.create({
-        data: {
-          ticketId: ticket.id,
-          senderType: 'CUSTOMER',
-          senderUserId: null,
-          body,
-          clientMessageId: clientMessageId || null,
-        },
-      });
-    } catch (err) {
-      if (err.code === 'P2002' && clientMessageId) {
+      // 3. Idempotency check: (ticketId, clientMessageId) under lock
+      if (clientMessageId) {
         const existing = await tx.message.findUnique({
           where: {
             ticketId_clientMessageId: {
@@ -140,6 +108,7 @@ export async function sendCustomerMessage({ customer, body, clientMessageId }) {
             },
           },
         });
+
         if (existing) {
           return {
             ok: true,
@@ -149,49 +118,77 @@ export async function sendCustomerMessage({ customer, body, clientMessageId }) {
           };
         }
       }
-      throw err;
-    }
 
-    await tx.ticket.update({
-      where: { id: ticket.id },
-      data: {
-        lastMessageAt: message.createdAt,
-        updatedAt: new Date(),
-      },
-    });
-
-    // 5. Automatic SYSTEM message if offline and ticket was new/reopened
-    let systemMessage = null;
-    if ((isNewTicket || isReopened) && !hasStaffOnline()) {
-      systemMessage = await tx.message.create({
+      // 4. Create customer message
+      const message = await tx.message.create({
         data: {
           ticketId: ticket.id,
-          senderType: 'SYSTEM',
+          senderType: 'CUSTOMER',
           senderUserId: null,
-          body: 'Terima kasih, pesan Anda sudah kami terima. Agen kami akan membalas secepatnya.',
-          clientMessageId: null,
+          body,
+          clientMessageId: clientMessageId || null,
         },
       });
 
       await tx.ticket.update({
         where: { id: ticket.id },
         data: {
-          lastMessageAt: systemMessage.createdAt,
+          lastMessageAt: message.createdAt,
           updatedAt: new Date(),
         },
       });
-    }
 
-    return {
-      ok: true,
-      message,
-      systemMessage,
-      ticket: serializeTicket(ticket),
-      isNewTicket,
-      isReopened,
-      isDuplicate: false,
-    };
-  });
+      // 5. Automatic SYSTEM message if offline and ticket was new/reopened
+      let systemMessage = null;
+      if ((isNewTicket || isReopened) && !hasStaffOnline()) {
+        systemMessage = await tx.message.create({
+          data: {
+            ticketId: ticket.id,
+            senderType: 'SYSTEM',
+            senderUserId: null,
+            body: 'Terima kasih, pesan Anda sudah kami terima. Agen kami akan membalas secepatnya.',
+            clientMessageId: null,
+          },
+        });
+
+        await tx.ticket.update({
+          where: { id: ticket.id },
+          data: {
+            lastMessageAt: systemMessage.createdAt,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return {
+        ok: true,
+        message,
+        systemMessage,
+        ticket: serializeTicket(ticket),
+        isNewTicket,
+        isReopened,
+        isDuplicate: false,
+      };
+    });
+  } catch (err) {
+    // If unique constraint violation occurred on (ticketId, clientMessageId),
+    // query OUTSIDE the aborted transaction using the clean Prisma client:
+    if (err.code === 'P2002' && clientMessageId) {
+      const existing = await prisma.message.findFirst({
+        where: { clientMessageId },
+        include: { ticket: true },
+      });
+      if (existing) {
+        return {
+          ok: true,
+          message: existing,
+          ticket: serializeTicket(existing.ticket),
+          isDuplicate: true,
+        };
+      }
+    }
+    throw err;
+  }
 }
 
 /**
