@@ -1,25 +1,48 @@
 /**
  * scripts/smoke-realtime.js
  * Comprehensive smoke test script for Socket.IO real-time chat, presence, and sync.
- * Verifies all 8 scenarios (a - h) required by Phase 2B.
+ * Verifies all 8 scenarios (a - h) + user deactivation required by Phase 2B.
+ * Designed to be rerunnable without side effects.
  */
 
 import crypto from 'node:crypto';
 import { io } from 'socket.io-client';
+import { prisma } from '../src/config/prisma.js';
 
 const BASE_URL = 'http://localhost:3000';
 
-// Helper for HTTP requests
+// Helper for HTTP requests with status check and clear error logging
 async function fetchJson(path, options = {}) {
   const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
-  const data = await res.json();
+  let res;
+  try {
+    res = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    });
+  } catch (err) {
+    console.error(`❌ Network error while fetching ${path}:`, err.message);
+    throw err;
+  }
+
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+
+  if (!options.allowError && res.status >= 400) {
+    console.error(`❌ HTTP Error at ${path}: Status ${res.status}, Body:`, JSON.stringify(data, null, 2));
+    const err = new Error(`HTTP ${res.status} at ${path}: ${JSON.stringify(data)}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+
   return { status: res.status, data };
 }
 
@@ -82,31 +105,47 @@ function sleep(ms) {
 }
 
 async function runSmokeTests() {
-  console.log('🚀 Memulai Real-time Smoke Tests (Fase 2B)...\n');
+  const runId = Date.now();
+  console.log(`🚀 Memulai Real-time Smoke Tests (Run ID: ${runId})...\n`);
 
-  // ── Step 0: Setup Credentials & Tokens ─────────────────────────────────────
-  const adminLogin = await fetchJson('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email: 'admin@helpdesk.test', password: 'Admin123!' }),
-  });
-  const adminToken = adminLogin.data.data.accessToken;
-
-  const agent1Login = await fetchJson('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email: 'agent1@helpdesk.test', password: 'Agent123!' }),
-  });
-  const agent1Token = agent1Login.data.data.accessToken;
-
-  const agent2Login = await fetchJson('/api/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email: 'agent2@helpdesk.test', password: 'Agent123!' }),
-  });
-  const agent2Token = agent2Login.data.data.accessToken;
-
+  // Tracking arrays for cleanup in finally block
+  const createdUserIds = [];
+  const createdCustomerIds = [];
+  const createdTicketIds = [];
   let activeSockets = [];
 
+  // Clean up any stale test user from previous runs
+  await prisma.user.deleteMany({
+    where: {
+      email: {
+        in: ['nonaktif.test@helpdesk.test', 'temp@helpdesk.local'],
+      },
+    },
+  });
+
   try {
+    // ── Step 0: Setup Credentials & Tokens ─────────────────────────────────────
+    const adminLogin = await fetchJson('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'admin@helpdesk.test', password: 'Admin123!' }),
+    });
+    const adminToken = adminLogin.data.data.accessToken;
+
+    const agent1Login = await fetchJson('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'agent1@helpdesk.test', password: 'Agent123!' }),
+    });
+    const agent1Token = agent1Login.data.data.accessToken;
+
+    const agent2Login = await fetchJson('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: 'agent2@helpdesk.test', password: 'Agent123!' }),
+    });
+    const agent2Token = agent2Login.data.data.accessToken;
+
     // ── Scenario a: Pesan customer pertama membuat tiket OPEN & agen menerima ticket:created ──
+    let customerSocketA;
+    let ticketIdA;
     {
       const agentSocket = await createSocket({ token: agent1Token });
       activeSockets.push(agentSocket);
@@ -114,10 +153,13 @@ async function runSmokeTests() {
       // Customer A session
       const sessRes = await fetchJson('/widget/session', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Customer Skenario A' }),
+        body: JSON.stringify({ name: `Customer A ${runId}` }),
       });
+      const customerA = sessRes.data.data.customer;
       const visitorTokenA = sessRes.data.data.visitorToken;
-      const customerSocketA = await createSocket({ visitorToken: visitorTokenA });
+      createdCustomerIds.push(customerA.id);
+
+      customerSocketA = await createSocket({ visitorToken: visitorTokenA });
       activeSockets.push(customerSocketA);
 
       const clientMsgId = crypto.randomUUID();
@@ -132,6 +174,8 @@ async function runSmokeTests() {
       });
 
       const ticketCreatedEvent = await ticketCreatedPromise;
+      ticketIdA = ack.ticket?.id;
+      if (ticketIdA) createdTicketIds.push(ticketIdA);
 
       if (
         ack.ok === true &&
@@ -142,6 +186,7 @@ async function runSmokeTests() {
         console.log('PASS: a) pesan customer pertama membuat tiket OPEN dan agen menerima ticket:created');
       } else {
         console.error('FAIL: a) pesan customer pertama membuat tiket OPEN dan agen menerima ticket:created', { ack, ticketCreatedEvent });
+        throw new Error('Scenario a failed');
       }
 
       // ── Scenario b: Kirim clientMessageId yang sama dua kali -> hanya satu pesan di database ──
@@ -151,7 +196,7 @@ async function runSmokeTests() {
       });
 
       // Verify messages count in DB for this ticket
-      const msgsRes = await fetchJson(`/api/tickets/${ack.ticket.id}/messages`, {
+      const msgsRes = await fetchJson(`/api/tickets/${ticketIdA}/messages`, {
         headers: { Authorization: `Bearer ${agent1Token}` },
       });
 
@@ -161,18 +206,20 @@ async function runSmokeTests() {
         console.log('PASS: b) kirim clientMessageId yang sama dua kali -> hanya satu pesan di database');
       } else {
         console.error('FAIL: b) kirim clientMessageId yang sama dua kali -> hanya satu pesan di database', { dupAck, count: matchingMsgs.length });
+        throw new Error('Scenario b failed');
       }
 
       // ── Scenario c: Dua agen claim bersamaan -> satu berhasil, satu 409 ──
-      const ticketIdToClaim = ack.ticket.id;
       const [claim1, claim2] = await Promise.all([
-        fetchJson(`/api/tickets/${ticketIdToClaim}/claim`, {
+        fetchJson(`/api/tickets/${ticketIdA}/claim`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${agent1Token}` },
+          allowError: true,
         }),
-        fetchJson(`/api/tickets/${ticketIdToClaim}/claim`, {
+        fetchJson(`/api/tickets/${ticketIdA}/claim`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${agent2Token}` },
+          allowError: true,
         }),
       ]);
 
@@ -181,10 +228,10 @@ async function runSmokeTests() {
         console.log('PASS: c) dua agen claim bersamaan -> satu berhasil, satu 409');
       } else {
         console.error('FAIL: c) dua agen claim bersamaan -> satu berhasil, satu 409', { claim1Status: claim1.status, claim2Status: claim2.status });
+        throw new Error('Scenario c failed');
       }
 
       // ── Scenario h: Agen non-assignee tidak bisa membalas ──
-      // Ticket is claimed by either Agent 1 or Agent 2
       const isAgent1Assignee = claim1.status === 200;
       const nonAssigneeToken = isAgent1Assignee ? agent2Token : agent1Token;
 
@@ -192,7 +239,7 @@ async function runSmokeTests() {
       activeSockets.push(nonAssigneeSocket);
 
       const forbiddenAck = await emitWithAck(nonAssigneeSocket, 'message:send', {
-        ticketId: ticketIdToClaim,
+        ticketId: ticketIdA,
         body: 'Saya agen lain mencoba membalas',
         clientMessageId: crypto.randomUUID(),
       });
@@ -201,11 +248,12 @@ async function runSmokeTests() {
         console.log('PASS: h) agen non-assignee tidak bisa membalas');
       } else {
         console.error('FAIL: h) agen non-assignee tidak bisa membalas', forbiddenAck);
+        throw new Error('Scenario h failed');
       }
 
       // ── Scenario e: Customer chat saat RESOLVED -> tiket kembali IN_PROGRESS ──
       // Mark ticket as RESOLVED
-      await fetchJson(`/api/tickets/${ticketIdToClaim}`, {
+      await fetchJson(`/api/tickets/${ticketIdA}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({ status: 'RESOLVED' }),
@@ -220,37 +268,40 @@ async function runSmokeTests() {
         console.log('PASS: e) customer chat saat RESOLVED -> tiket kembali IN_PROGRESS');
       } else {
         console.error('FAIL: e) customer chat saat RESOLVED -> tiket kembali IN_PROGRESS', reopenAck);
+        throw new Error('Scenario e failed');
       }
 
       // ── Scenario f: Customer chat saat CLOSED -> tiket baru ──
-      // Transition IN_PROGRESS -> RESOLVED -> CLOSED (PRD rule 7)
-      await fetchJson(`/api/tickets/${ticketIdToClaim}`, {
+      // Valid transition according to PRD rule 7: IN_PROGRESS -> RESOLVED -> CLOSED
+      await fetchJson(`/api/tickets/${ticketIdA}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({ status: 'RESOLVED' }),
       });
-      const closeRes = await fetchJson(`/api/tickets/${ticketIdToClaim}`, {
+      await fetchJson(`/api/tickets/${ticketIdA}`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({ status: 'CLOSED' }),
       });
-      if (closeRes.status !== 200) {
-        throw new Error(`Failed to close ticket: ${JSON.stringify(closeRes)}`);
-      }
 
       const newTicketAck = await emitWithAck(customerSocketA, 'message:send', {
         body: 'Keluhan baru setelah tiket lama ditutup',
         clientMessageId: crypto.randomUUID(),
       });
 
+      if (newTicketAck.ticket?.id) {
+        createdTicketIds.push(newTicketAck.ticket.id);
+      }
+
       if (
         newTicketAck.ok === true &&
-        newTicketAck.ticket?.id !== ticketIdToClaim &&
+        newTicketAck.ticket?.id !== ticketIdA &&
         newTicketAck.ticket?.status === 'OPEN'
       ) {
         console.log('PASS: f) customer chat saat CLOSED -> tiket baru');
       } else {
         console.error('FAIL: f) customer chat saat CLOSED -> tiket baru', newTicketAck);
+        throw new Error('Scenario f failed');
       }
     }
 
@@ -258,7 +309,7 @@ async function runSmokeTests() {
     {
       // Disconnect all sockets currently active so staff count = 0
       for (const s of activeSockets) {
-        s.disconnect();
+        if (s.connected) s.disconnect();
       }
       activeSockets = [];
       await sleep(500); // Allow server to unregister presence
@@ -266,9 +317,12 @@ async function runSmokeTests() {
       // Create new customer D
       const sessD = await fetchJson('/widget/session', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Customer Offline Skenario D' }),
+        body: JSON.stringify({ name: `Customer D ${runId}` }),
       });
+      const customerD = sessD.data.data.customer;
       const visitorTokenD = sessD.data.data.visitorToken;
+      createdCustomerIds.push(customerD.id);
+
       const customerSocketD = await createSocket({ visitorToken: visitorTokenD });
       activeSockets.push(customerSocketD);
 
@@ -285,6 +339,10 @@ async function runSmokeTests() {
         clientMessageId: crypto.randomUUID(),
       });
 
+      if (ackD.ticket?.id) {
+        createdTicketIds.push(ackD.ticket.id);
+      }
+
       await sleep(600);
 
       if (
@@ -295,6 +353,7 @@ async function runSmokeTests() {
         console.log('PASS: d) tidak ada agen online -> customer menerima pesan SYSTEM');
       } else {
         console.error('FAIL: d) tidak ada agen online -> customer menerima pesan SYSTEM', { ackD, receivedSystemMsg });
+        throw new Error('Scenario d failed');
       }
     }
 
@@ -306,9 +365,11 @@ async function runSmokeTests() {
       // Create Customer G
       const sessG = await fetchJson('/widget/session', {
         method: 'POST',
-        body: JSON.stringify({ name: 'Customer Skenario G' }),
+        body: JSON.stringify({ name: `Customer G ${runId}` }),
       });
+      const customerG = sessG.data.data.customer;
       const visitorTokenG = sessG.data.data.visitorToken;
+      createdCustomerIds.push(customerG.id);
 
       const customerSocketG1 = await createSocket({ visitorToken: visitorTokenG });
       activeSockets.push(customerSocketG1);
@@ -320,6 +381,7 @@ async function runSmokeTests() {
       });
       const firstMsgId = ack1.message.id;
       const ticketIdG = ack1.ticket.id;
+      createdTicketIds.push(ticketIdG);
 
       // Disconnect customer socket to simulate disconnection
       customerSocketG1.disconnect();
@@ -354,26 +416,29 @@ async function runSmokeTests() {
         console.log('PASS: g) sync:request mengembalikan pesan yang terlewat setelah klien terputus lalu tersambung lagi');
       } else {
         console.error('FAIL: g) sync:request mengembalikan pesan yang terlewat setelah klien terputus lalu tersambung lagi', syncRes);
+        throw new Error('Scenario g failed');
       }
     }
 
     // ── Scenario ekstra: User dinonaktifkan oleh admin -> socket diputus ──
     {
+      const uniqueEmail = `test-agent-${runId}@helpdesk.test`;
       const newAgentRes = await fetchJson('/api/users', {
         method: 'POST',
         headers: { Authorization: `Bearer ${adminToken}` },
         body: JSON.stringify({
-          name: 'Agen Nonaktif Test',
-          email: 'nonaktif.test@helpdesk.test',
+          name: `Temp Agent ${runId}`,
+          email: uniqueEmail,
           password: 'Password123!',
           role: 'AGENT',
         }),
       });
       const tempAgentId = newAgentRes.data.data.id;
+      createdUserIds.push(tempAgentId);
 
       const tempLogin = await fetchJson('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email: 'nonaktif.test@helpdesk.test', password: 'Password123!' }),
+        body: JSON.stringify({ email: uniqueEmail, password: 'Password123!' }),
       });
       const tempToken = tempLogin.data.data.accessToken;
 
@@ -398,18 +463,44 @@ async function runSmokeTests() {
         console.log('PASS: user dinonaktifkan admin -> socket langsung diputus');
       } else {
         console.error('FAIL: user dinonaktifkan admin -> socket tidak diputus');
+        throw new Error('User deactivation socket test failed');
       }
     }
 
     console.log('\n🎉 SEMUA SKENARIO REAL-TIME (a - h + deaktifasi user) BERHASIL LOLOS!');
   } finally {
+    // 1. Disconnect all sockets
     for (const s of activeSockets) {
-      if (s.connected) s.disconnect();
+      try {
+        if (s.connected) s.disconnect();
+      } catch {}
+    }
+
+    // 2. Clean up created test data so seed data is untouched
+    try {
+      if (createdTicketIds.length > 0) {
+        await prisma.ticket.deleteMany({
+          where: { id: { in: createdTicketIds } },
+        });
+      }
+      if (createdCustomerIds.length > 0) {
+        await prisma.customer.deleteMany({
+          where: { id: { in: createdCustomerIds } },
+        });
+      }
+      if (createdUserIds.length > 0) {
+        await prisma.user.deleteMany({
+          where: { id: { in: createdUserIds } },
+        });
+      }
+      await prisma.$disconnect();
+    } catch (cleanupErr) {
+      console.error('Warning during cleanup:', cleanupErr.message);
     }
   }
 }
 
 runSmokeTests().catch((err) => {
-  console.error('❌ Error executing smoke tests:', err);
+  console.error('\n❌ Smoke tests failed:', err.message);
   process.exit(1);
 });
