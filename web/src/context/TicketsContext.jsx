@@ -120,8 +120,11 @@ export function TicketsProvider({ children }) {
       setEvents(detailData.events || []);
 
       // Merge messages with any pending messages for this ticket
+      const messageList = Array.isArray(messagesData)
+        ? messagesData
+        : (messagesData?.messages || []);
       const pendingForTicket = pendingQueueRef.current.filter((p) => p.ticketId === ticketId);
-      const combined = [...(messagesData.messages || []), ...pendingForTicket];
+      const combined = [...messageList, ...pendingForTicket];
       setMessages(deduplicateMessages(combined));
     } catch (err) {
       console.error('[TicketsContext] Gagal memuat detail tiket:', err);
