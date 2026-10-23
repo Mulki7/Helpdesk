@@ -62,12 +62,30 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
     setState(() => _loadingTicket = true);
     try {
       final t = await TicketRepository().fetchTicket(widget.ticketId);
-      setState(() => _ticket = t);
+      setState(() {
+        _ticket = t;
+        _actionError = null;
+      });
     } catch (e) {
-      setState(() => _actionError = e.toString());
+      if (_ticket == null) {
+        setState(() => _actionError = _formatError(e.toString()));
+      }
     } finally {
       setState(() => _loadingTicket = false);
     }
+  }
+
+  String _formatError(String msg) {
+    if (msg.contains('SocketException') ||
+        msg.contains('Network is unreachable') ||
+        msg.contains('connection error') ||
+        msg.contains('Failed host lookup')) {
+      return 'Koneksi terputus. Menunggu jaringan kembali...';
+    }
+    if (msg.contains('409')) {
+      return 'Tiket sudah diambil agen lain.';
+    }
+    return 'Terjadi kesalahan: $msg';
   }
 
   void _scrollToBottom() {
@@ -102,10 +120,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
       setState(() => _ticket = updated);
       context.read<TicketsProvider>().updateTicketLocally(updated);
     } catch (e) {
-      final msg = e.toString();
-      setState(() => _actionError = msg.contains('409')
-          ? 'Tiket sudah diambil agen lain.'
-          : 'Gagal: $msg');
+      setState(() => _actionError = _formatError(e.toString()));
     } finally {
       setState(() => _actionLoading = false);
     }
@@ -178,8 +193,18 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
               width: double.infinity,
               color: cs.errorContainer,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(_actionError!,
-                  style: TextStyle(color: cs.onErrorContainer)),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(_actionError!,
+                        style: TextStyle(color: cs.onErrorContainer, fontSize: 13)),
+                  ),
+                  InkWell(
+                    onTap: () => setState(() => _actionError = null),
+                    child: Icon(Icons.close, size: 18, color: cs.onErrorContainer),
+                  ),
+                ],
+              ),
             ),
           // Daftar pesan
           Expanded(

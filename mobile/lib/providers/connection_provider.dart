@@ -27,6 +27,10 @@ class ConnectionProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void reconnect() {
+    _socket.reconnect(force: true);
+  }
+
   @override
   void dispose() {
     _socket.removeListener(_onSocketChange);

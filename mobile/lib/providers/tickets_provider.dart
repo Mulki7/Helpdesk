@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../data/repositories/ticket_repository.dart';
 import '../data/socket/socket_service.dart';
 import '../models/ticket.dart';
+import '../models/message.dart';
 
 /// Provider daftar tiket + real-time update.
 class TicketsProvider extends ChangeNotifier {
@@ -13,9 +14,10 @@ class TicketsProvider extends ChangeNotifier {
     required SocketService socket,
   })  : _repo = repo,
         _socket = socket {
-    _socket.onTicketCreated = _onTicketCreated;
-    _socket.onTicketUpdated = _onTicketUpdated;
-    _socket.onConnected = _onSocketConnected;
+    _socket.addTicketCreatedListener(_onTicketCreated);
+    _socket.addTicketUpdatedListener(_onTicketUpdated);
+    _socket.addConnectedListener(_onSocketConnected);
+    _socket.addMessageListener(_onMessageNew);
   }
 
   List<Ticket> _tickets = [];
@@ -48,10 +50,12 @@ class TicketsProvider extends ChangeNotifier {
   }
 
   /// Refresh dari API.
-  Future<void> refresh() async {
-    _loading = true;
-    _error = null;
-    notifyListeners();
+  Future<void> refresh({bool silent = false}) async {
+    if (!silent) {
+      _loading = true;
+      _error = null;
+      notifyListeners();
+    }
     try {
       final result = await _repo.fetchTickets();
       _tickets = (result['items'] as List<dynamic>)
@@ -59,8 +63,11 @@ class TicketsProvider extends ChangeNotifier {
           .toList();
       final rawCounts = result['counts'] as Map<String, dynamic>? ?? {};
       _counts = rawCounts.map((k, v) => MapEntry(k, v as int));
+      _error = null;
     } catch (e) {
-      _error = 'Gagal memuat tiket: ${e.toString()}';
+      if (!silent) {
+        _error = 'Gagal memuat tiket: ${e.toString()}';
+      }
     } finally {
       _loading = false;
       notifyListeners();
@@ -69,7 +76,7 @@ class TicketsProvider extends ChangeNotifier {
 
   void _onSocketConnected() {
     // Reload tiket saat reconnect
-    refresh();
+    refresh(silent: true);
   }
 
   void _onTicketCreated(Ticket t) {
@@ -80,6 +87,8 @@ class TicketsProvider extends ChangeNotifier {
       _tickets[idx] = t;
     }
     notifyListeners();
+    // Sinkronisasi data lengkap & badge jumlah di background
+    refresh(silent: true);
   }
 
   void _onTicketUpdated(Ticket t) {
@@ -91,6 +100,27 @@ class TicketsProvider extends ChangeNotifier {
       _tickets = [t, ..._tickets];
       notifyListeners();
     }
+    refresh(silent: true);
+  }
+
+  void _onMessageNew(Message msg, int ticketId) {
+    final idx = _tickets.indexWhere((x) => x.id == ticketId);
+    if (idx >= 0) {
+      final old = _tickets[idx];
+      final updated = old.copyWith(
+        lastMessage: TicketLastMessage(
+          body: msg.body,
+          senderType: msg.senderType,
+          createdAt: msg.createdAt,
+        ),
+        updatedAt: msg.createdAt,
+      );
+      _tickets.removeAt(idx);
+      _tickets.insert(0, updated);
+      notifyListeners();
+    }
+    // Refresh diam-diam agar badge & status terupdate
+    refresh(silent: true);
   }
 
   void updateTicketLocally(Ticket t) {
@@ -99,5 +129,14 @@ class TicketsProvider extends ChangeNotifier {
       _tickets[idx] = t;
       notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _socket.removeTicketCreatedListener(_onTicketCreated);
+    _socket.removeTicketUpdatedListener(_onTicketUpdated);
+    _socket.removeConnectedListener(_onSocketConnected);
+    _socket.removeMessageListener(_onMessageNew);
+    super.dispose();
   }
 }

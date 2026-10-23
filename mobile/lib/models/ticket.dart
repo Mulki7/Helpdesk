@@ -25,14 +25,24 @@ class Ticket {
   });
 
   factory Ticket.fromJson(Map<String, dynamic> json) {
+    TicketCustomer customer;
+    if (json['customer'] != null) {
+      customer = TicketCustomer.fromJson(json['customer'] as Map<String, dynamic>);
+    } else {
+      customer = TicketCustomer(
+        id: json['customerId'] as int? ?? 0,
+        name: (json['customerName'] as String?) ?? 'Pelanggan',
+        email: json['customerEmail'] as String?,
+      );
+    }
+
     return Ticket(
       id: json['id'] as int,
-      number: json['number'] as String,
-      subject: json['subject'] as String,
-      status: json['status'] as String,
-      priority: json['priority'] as String,
-      customer: TicketCustomer.fromJson(
-          json['customer'] as Map<String, dynamic>),
+      number: json['number'] as String? ?? 'HD-${json['id']}',
+      subject: json['subject'] as String? ?? 'Tidak ada subjek',
+      status: json['status'] as String? ?? 'OPEN',
+      priority: json['priority'] as String? ?? 'MEDIUM',
+      customer: customer,
       assignedAgent: json['assignedAgent'] != null
           ? TicketAgent.fromJson(
               json['assignedAgent'] as Map<String, dynamic>)
@@ -41,8 +51,12 @@ class Ticket {
           ? TicketLastMessage.fromJson(
               json['lastMessage'] as Map<String, dynamic>)
           : null,
-      createdAt: DateTime.parse(json['createdAt'] as String),
-      updatedAt: DateTime.parse(json['updatedAt'] as String),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : DateTime.now().toUtc(),
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : DateTime.now().toUtc(),
     );
   }
 

@@ -51,7 +51,12 @@ class SocketService extends ChangeNotifier {
     if (cb != null) addConnectedListener(cb);
   }
 
+  String? _accessToken;
+  Timer? _watchdogTimer;
+  int _unconnectedTicks = 0;
+
   Future<void> connect(String accessToken) async {
+    _accessToken = accessToken;
     final prefs = await SharedPreferences.getInstance();
     final serverUrl =
         prefs.getString('server_url') ?? AppConfig.defaultServerUrl;
@@ -67,17 +72,22 @@ class SocketService extends ChangeNotifier {
           .setAuth({'token': accessToken})
           .enableAutoConnect()
           .enableReconnection()
+          .setReconnectionAttempts(999999)
           .setReconnectionDelay(1000)
-          .setReconnectionDelayMax(10000)
+          .setReconnectionDelayMax(5000)
           .build(),
     );
 
-    _socket!.onConnect((_) {
+    void handleConnected() {
       _setStatus(SocketStatus.connected);
+      _unconnectedTicks = 0;
       for (final cb in List.of(_connectedListeners)) {
         cb();
       }
-    });
+    }
+
+    _socket!.onConnect((_) => handleConnected());
+    _socket!.on('reconnect', (_) => handleConnected());
 
     _socket!.onDisconnect((_) {
       _setStatus(SocketStatus.disconnected);
@@ -133,6 +143,33 @@ class SocketService extends ChangeNotifier {
         debugPrint('[Socket] ticket:updated parse error: $e');
       }
     });
+
+    _startWatchdog();
+  }
+
+  void _startWatchdog() {
+    _watchdogTimer?.cancel();
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (_status != SocketStatus.connected && _accessToken != null) {
+        _unconnectedTicks++;
+        if (_unconnectedTicks >= 2) {
+          _unconnectedTicks = 0;
+          debugPrint('[Socket] Watchdog: cycling socket connection...');
+          connect(_accessToken!);
+        } else {
+          _socket?.connect();
+        }
+      } else {
+        _unconnectedTicks = 0;
+      }
+    });
+  }
+
+  void reconnect({bool force = false}) {
+    if (_accessToken == null) return;
+    if (force || _status != SocketStatus.connected) {
+      connect(_accessToken!);
+    }
   }
 
   /// Emit sync:request untuk mendapatkan pesan terbaru.
@@ -203,9 +240,11 @@ class SocketService extends ChangeNotifier {
   }
 
   void disconnect() {
+    _watchdogTimer?.cancel();
     _socket?.disconnect();
     _socket?.dispose();
     _socket = null;
+    _accessToken = null;
     _setStatus(SocketStatus.disconnected);
   }
 
