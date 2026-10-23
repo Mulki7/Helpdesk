@@ -260,6 +260,9 @@ async function runSmokeTests() {
         createdTicketIds.push(ackRace2.ticket.id);
       }
 
+      // Small delay to ensure both transactions are visible to this Prisma connection
+      await new Promise((r) => setTimeout(r, 150));
+
       const raceTickets = await prisma.ticket.findMany({
         where: { customerId: custRace.id },
       });

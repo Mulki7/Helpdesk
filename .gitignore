@@ -7,7 +7,16 @@ build/
 
 # Prisma generated
 backend/node_modules/
-backend/prisma/migrations/
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
 # Flutter
 mobile/.dart_tool/
