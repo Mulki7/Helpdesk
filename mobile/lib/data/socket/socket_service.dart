@@ -73,8 +73,8 @@ class SocketService extends ChangeNotifier {
           .enableAutoConnect()
           .enableReconnection()
           .setReconnectionAttempts(999999)
-          .setReconnectionDelay(1000)
-          .setReconnectionDelayMax(5000)
+          .setReconnectionDelay(500)
+          .setReconnectionDelayMax(1500)
           .build(),
     );
 
@@ -149,7 +149,7 @@ class SocketService extends ChangeNotifier {
 
   void _startWatchdog() {
     _watchdogTimer?.cancel();
-    _watchdogTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+    _watchdogTimer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (_status != SocketStatus.connected && _accessToken != null) {
         _unconnectedTicks++;
         if (_unconnectedTicks >= 2) {
