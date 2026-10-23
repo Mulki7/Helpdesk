@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import '../data/db/database.dart';
 import '../data/repositories/auth_repository.dart';
+import '../data/services/fcm_service.dart';
 import '../data/socket/socket_service.dart';
 import '../models/user.dart';
 
@@ -45,6 +46,8 @@ class AuthProvider extends ChangeNotifier {
       // Sambungkan socket
       final token = await _repo.getAccessToken();
       if (token != null) await _socket.connect(token);
+      // Daftarkan token FCM ke backend
+      FcmService.instance.registerDeviceToken();
     } else {
       _status = AuthStatus.unauthenticated;
     }
@@ -61,6 +64,8 @@ class AuthProvider extends ChangeNotifier {
       _status = AuthStatus.authenticated;
       final token = await _repo.getAccessToken();
       if (token != null) await _socket.connect(token);
+      // Daftarkan token FCM ke backend
+      FcmService.instance.registerDeviceToken();
     } catch (e) {
       _errorMessage = _parseError(e);
       _status = AuthStatus.unauthenticated;
@@ -71,6 +76,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await FcmService.instance.unregisterDeviceToken();
     _socket.disconnect();
     await _repo.logout();
     await AppDatabase.instance.clearAll();

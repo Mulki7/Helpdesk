@@ -14,6 +14,7 @@ import { env } from './config/env.js';
 import { startAutoCloseJob } from './jobs/autoCloseTickets.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/auth.routes.js';
+import deviceRoutes from './routes/device.routes.js';
 import ticketRoutes from './routes/ticket.routes.js';
 import userRoutes from './routes/user.routes.js';
 import widgetRoutes from './routes/widget.routes.js';
@@ -109,6 +110,7 @@ app.get(['/app', '/app/*'], (_req, res) => {
 
 // ── API & widget REST routes ──────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
+app.use('/api/devices', deviceRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/widget', widgetRoutes);

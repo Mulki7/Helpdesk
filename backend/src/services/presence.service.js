@@ -15,6 +15,24 @@ export function hasStaffOnline() {
 }
 
 /**
+ * Returns true if the specific staff user has at least one active socket.
+ * @param {number} userId
+ * @returns {boolean}
+ */
+export function isUserOnline(userId) {
+  const set = staffSocketMap.get(Number(userId));
+  return Boolean(set && set.size > 0);
+}
+
+/**
+ * Returns a Set of user IDs for all currently connected staff.
+ * @returns {Set<number>}
+ */
+export function getOnlineStaffUserIds() {
+  return new Set(staffSocketMap.keys());
+}
+
+/**
  * Register a connected staff socket.
  * If status changes from offline to online, broadcast to all customer sockets.
  * @param {import('socket.io').Server} io

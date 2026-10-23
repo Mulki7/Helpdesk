@@ -12,6 +12,7 @@ Sistem helpdesk layanan pelanggan berbasis percakapan real-time omnichannel. Pro
 - **Audit Trail & Siklus Tiket Lengkap**: Pencatatan aktivitas (`ticket_events`) dari status `OPEN` &rarr; `IN_PROGRESS` &rarr; `RESOLVED` &rarr; `CLOSED`, dilengkapi auto-close otomatis untuk tiket yang telah diselesaikan.
 - **Multi-Role & Manajemen Agen**: Pemisahan hak akses `AGENT` dan `ADMIN` (kelola agen, reset password, dan reassignment tiket).
 - **Mobile Agent On-the-Go**: Aplikasi Android Flutter dengan Material 3, konfigurasi Server URL dinamis tanpa build ulang, serta cache offline lokal dengan `sqflite`.
+- **Push Notification (FCM)**: Notifikasi push instan via Firebase Cloud Messaging untuk staf saat aplikasi berada di background atau terminated, dilengkapi channel Android berprioritas tinggi dan banner notifikasi lokal saat foreground.
 
 ---
 
@@ -36,6 +37,10 @@ flowchart TB
         DB[("PostgreSQL\n(Prisma ORM)")]
     end
 
+    subgraph PushGateway ["Push Notification Service"]
+        FCM["Firebase Cloud Messaging\n(FCM HTTP v1 / firebase-admin)"]
+    end
+
     %% Koneksi Pelanggan
     W -->|REST Session & Conversation| REST
     W <-->|Socket.IO: message:send / message:new| IO
@@ -47,22 +52,25 @@ flowchart TB
     %% Koneksi Mobile App
     M -->|REST: Auth & Tiket| REST
     M <-->|Socket.IO: Aggressive Reconnect, Sync| IO
+    FCM -.->|Push Notification saat Offline| M
 
     %% Server Internal
     REST --> DB
     IO --> DB
     CRON -->|Cek tiket resolved kadaluarsa| DB
+    REST -.->|Trigger Push Notification| FCM
+    IO -.->|Trigger Push Notification| FCM
 ```
 
 ---
 
 ## 3. Tech Stack
 
-- **Backend**: Node.js (LTS), Express 4, Socket.IO 4, Prisma ORM 5, Zod (validasi skema), bcrypt, jsonwebtoken, Helmet.
-- **Basis Data Utama**: PostgreSQL (Relational Database dengan koneksi connection pooling via Prisma).
+- **Backend**: Node.js (LTS), Express 4, Socket.IO 4, Prisma ORM 5, Firebase Admin SDK (`firebase-admin`), Zod (validasi skema), bcrypt, jsonwebtoken, Helmet.
+- **Basis Data Utama**: PostgreSQL (Relational Database dengan connection pooling via Prisma).
 - **Web App**: React 18, Vite, Tailwind CSS, Lucide React, Socket.IO Client.
 - **Widget**: Vanilla JavaScript (ESBuild bundle ke satu file ~28 KB), Shadow DOM.
-- **Mobile App**: Flutter (Dart), Provider (State Management), Dio (HTTP), Socket.IO Client, **sqflite (cache lokal di HP)**, `flutter_secure_storage`.
+- **Mobile App**: Flutter (Dart), Provider (State Management), Firebase Messaging (`firebase_messaging`), Firebase Core (`firebase_core`), Flutter Local Notifications (`flutter_local_notifications`), Dio (HTTP), Socket.IO Client, **sqflite (cache lokal di HP)**, `flutter_secure_storage`.
 
 ---
 
@@ -307,10 +315,43 @@ Semua keputusan desain di bawah ini telah diimplementasikan secara konkret pada 
 
 ---
 
-## 13. Batasan yang Diketahui & Pengembangan Lanjutan
+## 13. Konfigurasi Push Notification (Firebase Cloud Messaging)
+
+Fitur push notification diimplementasikan menggunakan **Firebase Cloud Messaging (FCM)** dan **Flutter Local Notifications**.
+
+### 13.1 Persiapan Berkas Kredensial Firebase
+1. **Sisi Klien Mobile (Flutter / Android)**:
+   - Unduh berkas `google-services.json` dari Firebase Console proyek Anda (package name: `com.helpdesk.helpdesk_mobile`).
+   - Letakkan di: `mobile/android/app/google-services.json`.
+2. **Sisi Backend (Node.js / Express)**:
+   - Buat Service Account Key (format JSON) dari menu *Project settings* &rarr; *Service accounts* di Firebase Console.
+   - Simpan berkas tersebut di root backend (misalnya `backend/firebase-service-account.json`). Berkas ini telah diproteksi oleh `.gitignore` sehingga tidak akan pernah ter-commit ke repositori.
+   - Atur path berkas tersebut di `backend/.env`:
+     ```env
+     FCM_SERVICE_ACCOUNT_PATH=./firebase-service-account.json
+     ```
+
+### 13.2 Sifat Opsional (Graceful Fallback)
+Integrasi Firebase bersifat **sepenuhnya opsional** dan tidak memblokir fungsi utama sistem:
+- **Backend**: Jika `FCM_SERVICE_ACCOUNT_PATH` kosong atau berkas tidak ditemukan, backend tetap berjalan normal dan seluruh fungsi pengiriman notifikasi menjadi *no-op* tanpa melempar galat.
+- **Mobile**: Jika `google-services.json` tidak disertakan saat build, aplikasi mobile tetap berjalan normal tanpa fitur push.
+
+### 13.3 Aturan Pengiriman Notifikasi (Hanya Staf Offline)
+Untuk efisiensi dan kenyamanan agen, push notification **hanya dikirimkan kepada staf yang sedang tidak memiliki koneksi socket aktif**:
+- **Saat di Latar Belakang (Background / Minimized)**: Ketika aplikasi mobile diminimize (`AppLifecycleState.paused`), aplikasi secara sengaja memutuskan koneksi Socket.IO dan menghentikan watchdog reconnect. Dengan demikian, server mendeteksi agen sebagai *offline*.
+- **Pemicu Notifikasi**:
+  1. **Tiket Baru**: Dikirim ke seluruh staf yang sedang offline.
+  2. **Tiket Dibuka Kembali**: Dikirim ke assignee tiket (jika offline), atau seluruh staf offline jika belum ada assignee.
+  3. **Pesan Customer Masuk**: Dikirim ke agen yang menangani tiket (assignee) jika offline.
+  4. **Tiket Ditugaskan**: Dikirim ke agen baru yang ditugaskan jika offline.
+- **Saat Kembali Aktif (Resumed)**: Ketika aplikasi dibuka kembali ke foreground (`AppLifecycleState.resumed`), socket otomatis tersambung kembali, watchdog aktif, dan antrean pesan pending tersinkronisasi.
+- **Interaksi Notifikasi**: Mengetuk banner notifikasi (baik saat app di background maupun terminated) akan otomatis membuka layar detail percakapan tiket terkait (`TicketDetailScreen`) secara aman.
+
+---
+
+## 14. Batasan yang Diketahui & Pengembangan Lanjutan
 
 Fitur-fitur berikut berada di luar cakupan rilis saat ini dan dapat ditambahkan pada pengembangan berikutnya:
-- **Push Notification (FCM)**: Pengiriman push notification ke aplikasi mobile saat tertutup (tahap persiapan arsitektur token perangkat telah tersedia pada tabel `device_tokens`, integrasi FCM ditunda).
 - **Lampiran Berkas (File Attachments)**: Pengiriman gambar, PDF, atau dokumen pendukung komplain pelanggan.
 - **Kategori Tiket & SLA Management**: Pengelompokan tiket berdasarkan departemen (Billing, Teknis, Sales) dan batas waktu tanggapan (SLA).
 - **Customer Satisfaction (CSAT)**: Survei kepuasan bintang 1-5 setelah tiket berstatus `CLOSED`.
@@ -318,7 +359,7 @@ Fitur-fitur berikut berada di luar cakupan rilis saat ini dan dapat ditambahkan 
 
 ---
 
-## 14. Dokumentasi Proyek
+## 15. Dokumentasi Proyek
 
 Dokumen analisis sistem dan diagram arsitektur tersimpan pada folder `docs/`:
 - **Diagram Alur Proses**: [docs/BPMN_Helpdesk.pdf](file:///c:/Users/Hype/helpdesk/docs/BPMN_Helpdesk.pdf) *(BPMN proses bisnis layanan)*

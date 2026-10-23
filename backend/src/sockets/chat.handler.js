@@ -5,6 +5,7 @@
 
 import { z } from 'zod';
 import * as chatService from '../services/chat.service.js';
+import * as notificationService from '../services/notification.service.js';
 
 const customerMessageSchema = z.object({
   body: z.string().trim().min(1, 'Isi pesan tidak boleh kosong').max(2000, 'Isi pesan maksimal 2000 karakter'),
@@ -136,11 +137,27 @@ export function registerChatHandlers(io, socket) {
             ticketId: result.ticket.id,
           });
 
-          // Broadcast ticket events
+          // Broadcast ticket events & trigger FCM push (non-blocking)
           if (result.isNewTicket) {
             io.to('agents').emit('ticket:created', result.ticket);
+            notificationService.notifyTicketCreated({
+              ticket: result.ticket,
+              customerName: socket.customer?.name,
+              body,
+            }).catch(() => {});
           } else if (result.isReopened) {
             io.to('agents').to(customerRoom).emit('ticket:updated', result.ticket);
+            notificationService.notifyTicketReopened({
+              ticket: result.ticket,
+              customerName: socket.customer?.name,
+              body,
+            }).catch(() => {});
+          } else {
+            notificationService.notifyCustomerMessage({
+              ticket: result.ticket,
+              customerName: socket.customer?.name,
+              body,
+            }).catch(() => {});
           }
 
           // If SYSTEM message was generated, broadcast to both sides

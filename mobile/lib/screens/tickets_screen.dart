@@ -36,9 +36,12 @@ class _TicketsScreenState extends State<TicketsScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
+    if (state == AppLifecycleState.paused) {
+      context.read<SocketService>().pause();
+    } else if (state == AppLifecycleState.resumed) {
       final auth = context.read<AuthProvider>();
       final socket = context.read<SocketService>();
+      socket.resume();
       if (socket.status != SocketStatus.connected) {
         auth.reconnectSocket();
       }

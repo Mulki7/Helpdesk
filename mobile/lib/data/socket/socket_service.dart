@@ -54,8 +54,11 @@ class SocketService extends ChangeNotifier {
   String? _accessToken;
   Timer? _watchdogTimer;
   int _unconnectedTicks = 0;
+  bool _isPaused = false;
+  bool get isPaused => _isPaused;
 
   Future<void> connect(String accessToken) async {
+    _isPaused = false;
     _accessToken = accessToken;
     final prefs = await SharedPreferences.getInstance();
     final serverUrl =
@@ -149,7 +152,13 @@ class SocketService extends ChangeNotifier {
 
   void _startWatchdog() {
     _watchdogTimer?.cancel();
+    if (_isPaused) return;
+
     _watchdogTimer = Timer.periodic(const Duration(seconds: 2), (_) {
+      if (_isPaused) {
+        _watchdogTimer?.cancel();
+        return;
+      }
       if (_status != SocketStatus.connected && _accessToken != null) {
         _unconnectedTicks++;
         if (_unconnectedTicks >= 2) {
@@ -165,7 +174,31 @@ class SocketService extends ChangeNotifier {
     });
   }
 
+  /// Putuskan socket saat aplikasi masuk background (paused)
+  /// agar backend mendeteksi staff sebagai offline dan push notification (FCM) bisa masuk.
+  void pause() {
+    _isPaused = true;
+    _watchdogTimer?.cancel();
+    _watchdogTimer = null;
+    try {
+      _socket?.disconnect();
+    } catch (_) {}
+    _setStatus(SocketStatus.disconnected);
+    debugPrint('[Socket] Paused: socket disconnected & watchdog stopped for background mode.');
+  }
+
+  /// Sambungkan kembali socket saat aplikasi kembali ke foreground (resumed).
+  void resume() {
+    if (!_isPaused && _status == SocketStatus.connected) return;
+    _isPaused = false;
+    debugPrint('[Socket] Resumed: reconnecting socket and restarting watchdog...');
+    if (_accessToken != null) {
+      connect(_accessToken!);
+    }
+  }
+
   void reconnect({bool force = false}) {
+    if (_isPaused) return;
     if (_accessToken == null) return;
     if (force || _status != SocketStatus.connected) {
       connect(_accessToken!);

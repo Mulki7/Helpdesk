@@ -7,6 +7,7 @@ import { prisma } from '../config/prisma.js';
 import { eventBus } from '../events/eventBus.js';
 import { httpError } from '../utils/httpError.js';
 import { formatTicketNumber } from '../utils/ticketNumber.js';
+import * as notificationService from './notification.service.js';
 
 /**
  * Format ticket entity with computed HD-XXXX ticket number.
@@ -378,6 +379,7 @@ export async function assignTicket(ticketId, targetAgentId, user) {
 
   const updatedTicket = await getTicketById(ticketId);
   eventBus.emit('ticket:updated', { ticket: updatedTicket, customerId: updatedTicket.customerId });
+  notificationService.notifyTicketAssigned({ ticket: updatedTicket, targetAgentId }).catch(() => {});
   return updatedTicket;
 }
 
