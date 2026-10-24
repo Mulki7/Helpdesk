@@ -354,7 +354,7 @@ Belum dikerjakan pada versi ini:
 
 Dokumen analisis dan perancangan ada di folder `docs/`:
 
-- **Diagram alur proses (BPMN)**: [docs/BPMN_Helpdesk.drawio.png](docs/BPMN_Helpdesk.drawio.png)
+- **Diagram alur proses (BPMN)**: [docs/BPMN_Helpdesk.drawio.pdf](docs/BPMN_Helpdesk.drawio.pdf)
 - **Struktur rincian kerja (WBS)**: [docs/WBS_Helpdesk.xlsx](docs/WBS_Helpdesk.xlsx)
 - **Entity Relationship Diagram (ERD)**: [docs/ERD.md](docs/ERD.md)
 - **Spesifikasi produk (PRD)**: [PRD_Helpdesk.md](PRD_Helpdesk.md)
