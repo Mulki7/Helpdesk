@@ -14,7 +14,7 @@ class PriorityBadge extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         _StatusChip(status: ticket.status, compact: compact),
-        const SizedBox(width: 4),
+        const SizedBox(width: 8),
         _PriorityDot(priority: ticket.priority),
       ],
     );
@@ -28,27 +28,54 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final (label, color, textColor) = switch (status) {
-      'OPEN' => ('Terbuka', Colors.blue.shade100, Colors.blue.shade900),
-      'IN_PROGRESS' => ('Proses', Colors.orange.shade100, Colors.orange.shade900),
-      'RESOLVED' => ('Selesai', Colors.green.shade100, Colors.green.shade900),
-      'CLOSED' => ('Ditutup', Colors.grey.shade200, Colors.grey.shade700),
-      _ => (status, Colors.grey.shade200, Colors.grey.shade700),
+    // (label, latar, teks, border)
+    final (label, bg, fg, border) = switch (status) {
+      'OPEN' => (
+          'Terbuka',
+          const Color(0xFFE7F6EC),
+          const Color(0xFF166534),
+          const Color(0xFFBFE5CB)
+        ),
+      'IN_PROGRESS' => (
+          'Proses',
+          const Color(0xFFFEF3C7),
+          const Color(0xFF92400E),
+          const Color(0xFFFCE3A0)
+        ),
+      'RESOLVED' => (
+          'Selesai',
+          const Color(0xFFDBEAFE),
+          const Color(0xFF1E40AF),
+          const Color(0xFFBBD4FB)
+        ),
+      'CLOSED' => (
+          'Ditutup',
+          const Color(0xFFF3F4F6),
+          const Color(0xFF4B5563),
+          const Color(0xFFE5E7EB)
+        ),
+      _ => (
+          status,
+          const Color(0xFFF3F4F6),
+          const Color(0xFF4B5563),
+          const Color(0xFFE5E7EB)
+        ),
     };
 
     return Container(
       padding: EdgeInsets.symmetric(
-          horizontal: compact ? 6 : 8, vertical: compact ? 2 : 3),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
+          horizontal: compact ? 10 : 12, vertical: compact ? 3 : 4),
+      decoration: ShapeDecoration(
+        color: bg,
+        shape: StadiumBorder(side: BorderSide(color: border)),
       ),
       child: Text(
         label,
         style: TextStyle(
-            fontSize: compact ? 10 : 11,
-            fontWeight: FontWeight.w600,
-            color: textColor),
+          fontSize: compact ? 11 : 12,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
       ),
     );
   }
@@ -61,9 +88,9 @@ class _PriorityDot extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (priority) {
-      'HIGH' => Colors.red,
-      'MEDIUM' => Colors.orange,
-      'LOW' => Colors.green,
+      'HIGH' => const Color(0xFFEF4444),
+      'MEDIUM' => const Color(0xFFF59E0B),
+      'LOW' => const Color(0xFF22C55E),
       _ => Colors.grey,
     };
     return Tooltip(
@@ -74,11 +101,17 @@ class _PriorityDot extends StatelessWidget {
         _ => priority,
       },
       child: Container(
-        width: 10,
-        height: 10,
+        width: 12,
+        height: 12,
         decoration: BoxDecoration(
-          color: color,
+          color: color.withAlpha(40),
           shape: BoxShape.circle,
+        ),
+        alignment: Alignment.center,
+        child: Container(
+          width: 7,
+          height: 7,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
       ),
     );

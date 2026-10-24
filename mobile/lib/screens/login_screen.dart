@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../core/config.dart';
+import '../core/theme.dart';
 
 /// Layar Login: email, password, pengaturan Server URL.
 class LoginScreen extends StatefulWidget {
@@ -56,15 +57,17 @@ class _LoginScreenState extends State<LoginScreen> {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: cs.surfaceContainerLowest,
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(28),
             child: Card(
-              elevation: 4,
+              color: AppColors.bg,
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20)),
+                borderRadius: BorderRadius.circular(32),
+                side: const BorderSide(color: AppColors.border),
+              ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                     horizontal: 28, vertical: 40),
@@ -74,9 +77,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Icon(Icons.headset_mic_rounded,
-                          size: 56, color: cs.primary),
-                      const SizedBox(height: 12),
+                      Center(
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: const BoxDecoration(
+                            color: AppColors.ink,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.headset_mic_rounded,
+                              size: 34, color: Colors.white),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       Text(
                         'Helpdesk',
                         textAlign: TextAlign.center,
@@ -84,8 +97,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             .textTheme
                             .headlineSmall
                             ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: cs.primary,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: -0.6,
+                              color: AppColors.ink,
                             ),
                       ),
                       const SizedBox(height: 4),
@@ -95,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
-                            ?.copyWith(color: cs.onSurfaceVariant),
+                            ?.copyWith(color: AppColors.muted),
                       ),
                       const SizedBox(height: 32),
                       TextFormField(
@@ -177,7 +191,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 height: 20,
                                 width: 20,
                                 child: CircularProgressIndicator(
-                                    strokeWidth: 2))
+                                    strokeWidth: 2, color: Colors.white))
                             : const Text('Masuk'),
                       ),
                     ],

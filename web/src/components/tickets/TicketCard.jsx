@@ -1,6 +1,6 @@
 import { formatTicketNumber, formatRelativeTime } from '../../utils/formatters.js';
-import { StatusBadge, PriorityBadge } from '../common/Badge.jsx';
-import { User, MessageSquare } from 'lucide-react';
+import { StatusBadge } from '../common/Badge.jsx';
+import { User } from 'lucide-react';
 
 export function TicketCard({ ticket, isSelected, onClick }) {
   const lastMsg = ticket.lastMessage;
@@ -8,42 +8,42 @@ export function TicketCard({ ticket, isSelected, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`p-4 border-b border-slate-100 cursor-pointer transition-all duration-150 ${
+      className={`px-5 py-4 border-b border-slate-100/80 cursor-pointer transition-all duration-200 group ${
         isSelected
-          ? 'bg-blue-50/70 border-l-4 border-l-brand-600 pl-3'
-          : 'hover:bg-slate-50/80 bg-white'
+          ? 'bg-white border-l-[4px] border-l-emerald-500 pl-[16px] shadow-sm'
+          : 'bg-white hover:bg-slate-50/80 border-l-[4px] border-l-transparent'
       }`}
     >
-      {/* Top row: Number, relative time, Priority */}
-      <div className="flex items-center justify-between gap-2 mb-1">
-        <span className="font-bold text-xs text-brand-700 tracking-wide font-mono">
+      {/* Row 1: Ticket ID + Time */}
+      <div className="flex items-center justify-between mb-2">
+        <span
+          className={`font-mono text-xs font-bold tracking-wider ${
+            isSelected ? 'text-emerald-700' : 'text-slate-400 group-hover:text-slate-600'
+          }`}
+        >
           {formatTicketNumber(ticket.id)}
         </span>
-        <div className="flex items-center gap-1.5">
-          <PriorityBadge priority={ticket.priority} />
-          <span className="text-[11px] text-slate-400">
-            {formatRelativeTime(ticket.lastMessageAt || ticket.updatedAt)}
-          </span>
-        </div>
+        <span className="text-xs text-slate-400 font-medium">
+          {formatRelativeTime(ticket.lastMessageAt || ticket.updatedAt)}
+        </span>
       </div>
 
-      {/* Customer Name */}
-      <h4 className="text-sm font-semibold text-slate-900 truncate mb-1">
+      {/* Row 2: Customer Name (prominent) */}
+      <p className="text-sm font-bold text-slate-900 truncate mb-1.5 leading-tight">
         {ticket.customer?.name || 'Customer'}
-      </h4>
+      </p>
 
-      {/* Last message snippet or Subject */}
-      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-2.5">
+      {/* Row 3: Message preview */}
+      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">
         {lastMsg?.body || ticket.subject || 'Tidak ada pesan'}
       </p>
 
-      {/* Bottom row: Status and Assignee */}
-      <div className="flex items-center justify-between text-xs pt-1">
+      {/* Row 4: Status + Assignee */}
+      <div className="flex items-center justify-between">
         <StatusBadge status={ticket.status} />
-
-        <div className="flex items-center gap-1 text-[11px] text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
           <User className="w-3 h-3" />
-          <span className="truncate max-w-[110px]">
+          <span className="truncate max-w-[100px] font-medium">
             {ticket.assignedAgent ? ticket.assignedAgent.name : 'Belum diambil'}
           </span>
         </div>

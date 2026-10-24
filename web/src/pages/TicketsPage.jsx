@@ -30,7 +30,7 @@ export function TicketsPage() {
   const [activeView, setActiveView] = useState('chat'); // 'chat' | 'events'
 
   return (
-    <div className="flex h-full w-full overflow-hidden bg-slate-100/50">
+    <div className="flex h-full w-full overflow-hidden bg-slate-100">
       {/* Left Column: Ticket List & Filters */}
       <TicketList
         tickets={tickets}
@@ -57,8 +57,8 @@ export function TicketsPage() {
 
             <div className="flex-1 min-h-0 relative">
               {loadingDetail ? (
-                <div className="absolute inset-0 bg-white/70 backdrop-blur-xs flex items-center justify-center text-xs text-slate-400 z-10">
-                  <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mr-2" />
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex items-center justify-center text-sm text-slate-400 z-10">
+                  <div className="w-8 h-8 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mr-3" />
                   Memuat percakapan...
                 </div>
               ) : null}

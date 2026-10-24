@@ -4,6 +4,7 @@ import '../providers/auth_provider.dart';
 import '../providers/connection_provider.dart';
 import '../data/socket/socket_service.dart';
 import '../core/config.dart';
+import '../core/theme.dart';
 
 /// Layar Pengaturan: profil, Server URL, status koneksi, logout.
 class SettingsScreen extends StatefulWidget {
@@ -52,7 +53,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final cs = Theme.of(context).colorScheme;
 
     final statusColor = conn.status == SocketStatus.connected
-        ? Colors.green
+        ? AppColors.green
         : conn.status == SocketStatus.connecting
             ? Colors.orange
             : cs.error;
@@ -60,7 +61,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Pengaturan')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
         children: [
           // Profil
           Card(
@@ -69,14 +70,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Row(
                 children: [
                   CircleAvatar(
-                    radius: 28,
-                    backgroundColor: cs.primaryContainer,
+                    radius: 30,
+                    backgroundColor: AppColors.greenSoft,
                     child: Text(
                       auth.user?.name.substring(0, 1).toUpperCase() ?? '?',
-                      style: TextStyle(
-                          color: cs.onPrimaryContainer,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold),
+                      style: const TextStyle(
+                          color: AppColors.greenDark,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w800),
                     ),
                   ),
                   const SizedBox(width: 16),
@@ -88,21 +89,35 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             style: Theme.of(context)
                                 .textTheme
                                 .titleMedium
-                                ?.copyWith(fontWeight: FontWeight.bold)),
+                                ?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.3)),
+                        const SizedBox(height: 2),
                         Text(auth.user?.email ?? '-',
-                            style: Theme.of(context).textTheme.bodySmall),
-                        const SizedBox(height: 4),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: AppColors.muted)),
+                        const SizedBox(height: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: cs.secondaryContainer,
-                            borderRadius: BorderRadius.circular(10),
+                              horizontal: 12, vertical: 3),
+                          decoration: ShapeDecoration(
+                            color: auth.user?.role == 'ADMIN'
+                                ? AppColors.ink
+                                : AppColors.greenSoft,
+                            shape: kPill,
                           ),
                           child: Text(
                             auth.user?.role == 'ADMIN' ? 'Admin' : 'Agen',
                             style: TextStyle(
-                                fontSize: 12, color: cs.onSecondaryContainer),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: auth.user?.role == 'ADMIN'
+                                    ? Colors.white
+                                    : AppColors.greenDark),
                           ),
                         ),
                       ],
@@ -116,9 +131,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Status koneksi
           Card(
             child: ListTile(
-              leading: Icon(Icons.circle, color: statusColor, size: 14),
-              title: const Text('Status Koneksi'),
-              subtitle: Text(conn.label),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+              leading: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: statusColor.withAlpha(40),
+                  shape: BoxShape.circle,
+                ),
+                alignment: Alignment.center,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration:
+                      BoxDecoration(color: statusColor, shape: BoxShape.circle),
+                ),
+              ),
+              title: const Text('Status Koneksi',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(conn.label,
+                  style: const TextStyle(color: AppColors.muted)),
             ),
           ),
           const SizedBox(height: 16),
@@ -133,7 +166,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Server URL',
-                          style: Theme.of(context).textTheme.titleSmall),
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700)),
                       TextButton(
                         onPressed: () {
                           if (_editingUrl) {
@@ -160,7 +196,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       _serverCtrl.text.isEmpty
                           ? AppConfig.defaultServerUrl
                           : _serverCtrl.text,
-                      style: TextStyle(color: cs.onSurfaceVariant),
+                      style: const TextStyle(
+                        color: AppColors.muted,
+                        fontFamily: 'monospace',
+                        fontSize: 13.5,
+                      ),
                     ),
                 ],
               ),
@@ -177,6 +217,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: cs.errorContainer,
               foregroundColor: cs.onErrorContainer,
+              elevation: 0,
             ),
           ),
         ],

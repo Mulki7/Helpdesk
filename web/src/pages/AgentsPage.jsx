@@ -68,12 +68,12 @@ export function AgentsPage() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-8 bg-slate-50">
+    <div className="h-full overflow-y-auto p-8 bg-slate-50/60">
       <div className="max-w-5xl mx-auto">
         {/* Page Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-slate-900">Kelola Pengguna</h1>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Kelola Pengguna</h1>
             <p className="text-xs text-slate-500 mt-1">
               Daftar akun agen customer support dan administrator.
             </p>
@@ -81,9 +81,9 @@ export function AgentsPage() {
 
           <button
             onClick={handleOpenAdd}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 transition-colors shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#111111] text-white hover:bg-[#1f242c] active:scale-[0.99] transition-all shadow-sm shadow-black/15 cursor-pointer"
           >
-            <UserPlus className="w-4 h-4" />
+            <UserPlus className="w-4 h-4 text-emerald-400" />
             <span>Tambah User</span>
           </button>
         </div>
@@ -97,7 +97,7 @@ export function AgentsPage() {
             </div>
             <button
               onClick={() => setError('')}
-              className="text-xs text-rose-500 underline font-medium hover:text-rose-700"
+              className="text-xs text-rose-500 underline font-medium hover:text-rose-700 cursor-pointer"
             >
               Tutup
             </button>
@@ -105,22 +105,22 @@ export function AgentsPage() {
         )}
 
         {/* Users Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-200/90 shadow-2xs overflow-hidden">
           {loading ? (
             <div className="p-12 text-center text-xs text-slate-400 flex flex-col items-center justify-center">
-              <Loader2 className="w-6 h-6 animate-spin text-brand-600 mb-2" />
+              <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mb-2" />
               <span>Memuat data user...</span>
             </div>
           ) : (
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/70 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                  <th className="py-3 px-5">Nama Lengkap</th>
-                  <th className="py-3 px-5">Email</th>
-                  <th className="py-3 px-5">Role</th>
-                  <th className="py-3 px-5">Status</th>
-                  <th className="py-3 px-5">Terdaftar</th>
-                  <th className="py-3 px-5 text-right">Aksi</th>
+                <tr className="border-b border-slate-100 bg-slate-50/80 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                  <th className="py-3.5 px-5">Nama Lengkap</th>
+                  <th className="py-3.5 px-5">Email</th>
+                  <th className="py-3.5 px-5">Role</th>
+                  <th className="py-3.5 px-5">Status</th>
+                  <th className="py-3.5 px-5">Terdaftar</th>
+                  <th className="py-3.5 px-5 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
@@ -129,11 +129,11 @@ export function AgentsPage() {
                   const isActionLoading = actionLoadingId === u.id;
 
                   return (
-                    <tr key={u.id} className="hover:bg-slate-50/60 transition-colors">
-                      <td className="py-3.5 px-5 font-semibold text-slate-900">
+                    <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="py-3.5 px-5 font-bold text-slate-900">
                         {u.name}
                         {isSelf && (
-                          <span className="ml-2 text-[10px] font-bold text-brand-600 bg-brand-50 px-1.5 py-0.5 rounded-md border border-brand-100">
+                          <span className="ml-2 text-[10px] font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200/80">
                             Anda
                           </span>
                         )}
@@ -162,7 +162,7 @@ export function AgentsPage() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => handleOpenEdit(u)}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition-colors cursor-pointer"
                             title="Edit User"
                           >
                             <Edit2 className="w-3.5 h-3.5" />
@@ -178,7 +178,7 @@ export function AgentsPage() {
                                 ? 'Nonaktifkan Akun'
                                 : 'Aktifkan Akun'
                             }
-                            className={`p-1.5 rounded-lg transition-colors ${
+                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
                               isSelf
                                 ? 'opacity-30 cursor-not-allowed text-slate-300'
                                 : u.isActive
@@ -214,3 +214,4 @@ export function AgentsPage() {
     </div>
   );
 }
+

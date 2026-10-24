@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/theme.dart';
 import '../data/socket/socket_service.dart';
 import '../providers/auth_provider.dart';
 import '../providers/tickets_provider.dart';
@@ -80,44 +81,63 @@ class _TicketsScreenState extends State<TicketsScreen>
             ),
           ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(
-              child: _TabLabel(
-                label: 'Antrean',
-                count: counts['OPEN'] ?? queueList.length,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              height: 44,
+              padding: const EdgeInsets.all(4),
+              decoration: const ShapeDecoration(
+                color: AppColors.inkSoft,
+                shape: kPill,
+              ),
+              child: TabBar(
+                controller: _tabController,
+                tabs: [
+                  Tab(
+                    height: 36,
+                    child: _TabLabel(
+                      label: 'Antrean',
+                      count: counts['OPEN'] ?? queueList.length,
+                    ),
+                  ),
+                  Tab(
+                    height: 36,
+                    child: _TabLabel(
+                      label: 'Tiket Saya',
+                      count: counts['IN_PROGRESS'] ?? mineList.length,
+                    ),
+                  ),
+                  const Tab(height: 36, text: 'Semua'),
+                ],
               ),
             ),
-            Tab(
-              child: _TabLabel(
-                label: 'Tiket Saya',
-                count: counts['IN_PROGRESS'] ?? mineList.length,
-              ),
-            ),
-            const Tab(text: 'Semua'),
-          ],
+          ),
         ),
       ),
       body: Column(
         children: [
           const ConnectionBanner(),
           Expanded(
-            child: tickets.loading && tickets.tickets.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _TicketList(
-                          tickets: queueList,
-                          emptyMessage: 'Tidak ada tiket dalam antrean'),
-                      _TicketList(
-                          tickets: mineList,
-                          emptyMessage: 'Tidak ada tiket yang ditugaskan'),
-                      _TicketList(
-                          tickets: allList, emptyMessage: 'Belum ada tiket'),
-                    ],
-                  ),
+            child: ColoredBox(
+              color: AppColors.bg,
+              child: tickets.loading && tickets.tickets.isEmpty
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _TicketList(
+                            tickets: queueList,
+                            emptyMessage: 'Tidak ada tiket dalam antrean'),
+                        _TicketList(
+                            tickets: mineList,
+                            emptyMessage: 'Tidak ada tiket yang ditugaskan'),
+                        _TicketList(
+                            tickets: allList, emptyMessage: 'Belum ada tiket'),
+                      ],
+                    ),
+            ),
           ),
         ],
       ),
@@ -135,21 +155,21 @@ class _TabLabel extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label),
+        Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
         if (count > 0) ...[
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(10),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
+            decoration: const ShapeDecoration(
+              color: AppColors.green,
+              shape: kPill,
             ),
             child: Text(
               '$count',
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Theme.of(context).colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
               ),
             ),
           ),
@@ -172,13 +192,20 @@ class _TicketList extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inbox_outlined,
-                size: 64,
-                color: Theme.of(context).colorScheme.outlineVariant),
-            const SizedBox(height: 12),
+            Container(
+              width: 72,
+              height: 72,
+              decoration: const BoxDecoration(
+                color: AppColors.chip,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.inbox_outlined,
+                  size: 34, color: AppColors.muted),
+            ),
+            const SizedBox(height: 14),
             Text(emptyMessage,
-                style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                style: const TextStyle(
+                    color: AppColors.muted, fontWeight: FontWeight.w500)),
           ],
         ),
       );
@@ -186,7 +213,9 @@ class _TicketList extends StatelessWidget {
 
     return RefreshIndicator(
       onRefresh: () => context.read<TicketsProvider>().refresh(),
+      color: AppColors.green,
       child: ListView.builder(
+        padding: const EdgeInsets.only(top: 10, bottom: 24),
         itemCount: tickets.length,
         itemBuilder: (ctx, i) {
           final t = tickets[i];

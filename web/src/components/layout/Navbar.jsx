@@ -1,38 +1,37 @@
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useConnection } from '../../context/ConnectionContext.jsx';
 import { RoleBadge } from '../common/Badge.jsx';
-import { LogOut, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { LogOut, RefreshCw, WifiOff } from 'lucide-react';
 
 export function Navbar() {
   const { user, logout } = useAuth();
   const { status } = useConnection();
 
   return (
-    <header className="h-16 bg-white border-b border-slate-200/80 px-6 flex items-center justify-between shrink-0 z-10 shadow-sm">
-      {/* Left: Search / Page context or Empty */}
+    <header className="h-20 bg-white border-b border-slate-200/70 px-8 flex items-center justify-between shrink-0 z-10 shadow-sm">
+      {/* Left: Empty or future breadcrumb */}
       <div className="flex items-center gap-3">
-        {/* Can be used for mobile toggle if needed */}
       </div>
 
       {/* Right: Connection Status & User Profile */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-5">
         {/* Connection status pill */}
         <div className="flex items-center">
           {status === 'connected' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-sm">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-sm shadow-emerald-400" />
               Terhubung
             </span>
           )}
           {status === 'reconnecting' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-              <RefreshCw className="w-3 h-3 animate-spin text-amber-600" />
-              Menyambungkan ulang...
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
+              <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-600" />
+              Menyambungkan...
             </span>
           )}
           {status === 'offline' && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-              <WifiOff className="w-3.5 h-3.5 text-rose-600" />
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shadow-sm">
+              <WifiOff className="w-4 h-4 text-rose-600" />
               Offline
             </span>
           )}
@@ -40,16 +39,16 @@ export function Navbar() {
 
         <div className="h-5 w-px bg-slate-200" />
 
-        {/* User Info */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-full bg-brand-100 text-brand-700 flex items-center justify-center font-bold text-sm border border-brand-200">
+        {/* User Info with Emerald Deep avatar */}
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-full bg-[#064e3b] text-[#34d399] flex items-center justify-center font-bold text-sm shadow-md shadow-emerald-900/20 border-2 border-emerald-800/50">
             {user?.name ? user.name.charAt(0).toUpperCase() : 'U'}
           </div>
           <div className="flex flex-col">
-            <span className="text-xs font-semibold text-slate-800 leading-tight">
+            <span className="text-sm font-bold text-slate-900 leading-tight">
               {user?.name}
             </span>
-            <span className="text-[10px] text-slate-400 leading-tight">
+            <span className="text-xs text-slate-400 leading-tight">
               {user?.email}
             </span>
           </div>
@@ -60,11 +59,12 @@ export function Navbar() {
         <button
           onClick={logout}
           title="Keluar"
-          className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors ml-1"
+          className="p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all duration-200 ml-1 cursor-pointer shadow-sm hover:shadow-md"
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut className="w-4.5 h-4.5" />
         </button>
       </div>
     </header>
   );
 }
+

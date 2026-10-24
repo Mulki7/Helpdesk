@@ -64,14 +64,14 @@ export function AssignModal({ isOpen, onClose, ticket, onAssigned }) {
           </label>
           {loading ? (
             <div className="py-4 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
-              <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+              <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
               Memuat data agen...
             </div>
           ) : (
             <select
               value={selectedAgentId}
               onChange={(e) => setSelectedAgentId(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-100"
+              className="w-full bg-white border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-3 focus:ring-emerald-500/15 cursor-pointer"
             >
               <option value="">-- Pilih Agen --</option>
               {agents.map((ag) => (
@@ -83,28 +83,29 @@ export function AssignModal({ isOpen, onClose, ticket, onAssigned }) {
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <div className="flex items-center justify-end gap-2.5 pt-3.5 border-t border-slate-100">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+            className="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             Batal
           </button>
           <button
             type="submit"
             disabled={submitting || loading}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-brand-600 text-white hover:bg-brand-700 disabled:opacity-50 transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-4.5 py-2.5 rounded-xl text-xs font-semibold bg-[#111111] text-white hover:bg-[#1f242c] active:scale-[0.99] disabled:opacity-50 transition-all shadow-xs cursor-pointer"
           >
             {submitting ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
             ) : (
-              <UserCheck className="w-3.5 h-3.5" />
+              <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
             )}
-            Simpan Perubahan
+            <span>Simpan Perubahan</span>
           </button>
         </div>
       </form>
     </Modal>
   );
 }
+

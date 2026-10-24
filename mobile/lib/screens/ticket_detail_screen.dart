@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/theme.dart';
 import '../data/db/queue_dao.dart';
 import '../data/repositories/message_repository.dart';
 import '../data/socket/socket_service.dart';
@@ -222,7 +223,7 @@ class _TicketDetailScreenState extends State<TicketDetailScreen>
                         return ListView.builder(
                           controller: _scrollCtrl,
                           padding: const EdgeInsets.symmetric(
-                              vertical: 8, horizontal: 4),
+                              vertical: 14, horizontal: 6),
                           itemCount: chat.messages.length,
                           itemBuilder: (ctx, i) {
                             final msg = chat.messages[i];
@@ -330,11 +331,14 @@ class _TicketHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     return Container(
-      color: cs.surfaceContainerLow,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
@@ -342,21 +346,43 @@ class _TicketHeader extends StatelessWidget {
               children: [
                 Text(
                   ticket.subject,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                  maxLines: 1,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                    letterSpacing: -0.2,
+                  ),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  ticket.assignedAgent != null
-                      ? 'Agen: ${ticket.assignedAgent!.name}'
-                      : 'Belum ada agen',
-                  style: Theme.of(context).textTheme.bodySmall,
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.person_outline_rounded,
+                        size: 14, color: AppColors.muted),
+                    const SizedBox(width: 4),
+                    Flexible(
+                      child: Text(
+                        ticket.assignedAgent != null
+                            ? 'Agen: ${ticket.assignedAgent!.name}'
+                            : 'Belum ada agen',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppColors.muted, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-          PriorityBadge(ticket: ticket),
+          const SizedBox(width: 12),
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: PriorityBadge(ticket: ticket),
+          ),
         ],
       ),
     );
@@ -378,40 +404,61 @@ class _ReplyInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    OutlineInputBorder pillBorder(Color c, [double w = 1]) =>
+        OutlineInputBorder(
+          borderRadius: BorderRadius.circular(28),
+          borderSide: BorderSide(color: c, width: w),
+        );
+
     return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        border: Border(
-          top: BorderSide(
-              color: Theme.of(context).colorScheme.outlineVariant),
-        ),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: controller,
-              enabled: enabled,
-              minLines: 1,
-              maxLines: 4,
-              decoration: InputDecoration(
-                hintText: hintText,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: controller,
+                  enabled: enabled,
+                  minLines: 1,
+                  maxLines: 4,
+                  style: const TextStyle(fontSize: 14.5),
+                  decoration: InputDecoration(
+                    hintText: hintText,
+                    hintMaxLines: 1,
+                    filled: true,
+                    fillColor: AppColors.bg,
+                    border: pillBorder(AppColors.border),
+                    enabledBorder: pillBorder(AppColors.border),
+                    disabledBorder: pillBorder(AppColors.border),
+                    focusedBorder: pillBorder(AppColors.ink, 1.5),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 13),
+                  ),
+                  textInputAction: TextInputAction.newline,
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               ),
-              textInputAction: TextInputAction.newline,
-            ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: enabled ? onSend : null,
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.green,
+                  foregroundColor: Colors.white,
+                  disabledBackgroundColor: const Color(0xFFBFE5CB),
+                  disabledForegroundColor: Colors.white,
+                  fixedSize: const Size(48, 48),
+                ),
+                icon: const Icon(Icons.send_rounded, size: 20),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          IconButton.filled(
-            onPressed: enabled ? onSend : null,
-            icon: const Icon(Icons.send_rounded),
-          ),
-        ],
+        ),
       ),
     );
   }

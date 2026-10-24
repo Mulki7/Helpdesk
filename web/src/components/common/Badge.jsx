@@ -7,11 +7,11 @@ import {
 
 export function StatusBadge({ status }) {
   const label = STATUS_LABELS[status] || status;
-  const colorClass = STATUS_COLORS[status] || 'bg-gray-100 text-gray-700 border-gray-200';
+  const colorClass = STATUS_COLORS[status] || 'bg-slate-100 text-slate-700 border-slate-200';
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${colorClass}`}
     >
       {label}
     </span>
@@ -20,11 +20,11 @@ export function StatusBadge({ status }) {
 
 export function PriorityBadge({ priority }) {
   const label = PRIORITY_LABELS[priority] || priority;
-  const colorClass = PRIORITY_COLORS[priority] || 'bg-gray-100 text-gray-700 border-gray-200';
+  const colorClass = PRIORITY_COLORS[priority] || 'bg-slate-100 text-slate-700 border-slate-200';
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${colorClass}`}
+      className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${colorClass}`}
     >
       {label}
     </span>
@@ -35,11 +35,14 @@ export function RoleBadge({ role }) {
   const isAdmin = role === 'ADMIN';
   return (
     <span
-      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${
-        isAdmin ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'
+      className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-bold tracking-wide uppercase shadow-sm ${
+        isAdmin
+          ? 'bg-[#191c21] text-white border border-white/20'
+          : 'bg-slate-100 text-slate-600 border border-slate-200'
       }`}
     >
       {isAdmin ? 'Admin' : 'Agen'}
     </span>
   );
 }
+

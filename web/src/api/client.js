@@ -52,7 +52,7 @@ export async function refreshAccessToken() {
   if (!refreshToken) {
     clearAuthTokens();
     if (_onAuthFailure) _onAuthFailure();
-    throw new Error('Tidak ada refresh token.');
+    throw new Error('Email dan password salah.');
   }
 
   _refreshPromise = (async () => {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../core/theme.dart';
 import '../models/ticket.dart';
 import 'priority_badge.dart';
 
@@ -12,62 +13,95 @@ class TicketItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
     final timeStr = _relativeTime(ticket.updatedAt);
+    final textTheme = Theme.of(context).textTheme;
 
     return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Baris 1: nomor tiket + waktu
               Row(
                 children: [
                   Text(
                     ticket.number,
-                    style: TextStyle(
-                        color: cs.primary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      color: AppColors.greenDark,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 12.5,
+                      letterSpacing: 0.4,
+                    ),
                   ),
                   const Spacer(),
-                  PriorityBadge(ticket: ticket, compact: true),
-                  const SizedBox(width: 6),
-                  Text(timeStr,
-                      style: Theme.of(context)
-                          .textTheme
-                          .bodySmall
-                          ?.copyWith(color: cs.onSurfaceVariant)),
+                  Text(
+                    timeStr,
+                    style: textTheme.bodySmall?.copyWith(
+                      color: AppColors.muted,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 8),
+              // Baris 2: nama customer
               Text(
                 ticket.customer.name,
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 16,
+                  letterSpacing: -0.2,
+                ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 3),
+              // Baris 3: pratinjau pesan
               Text(
                 ticket.lastMessage?.body ?? ticket.subject,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: cs.onSurfaceVariant),
-              ),
-              if (ticket.assignedAgent != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Agen: ${ticket.assignedAgent!.name}',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: cs.secondary),
+                style: textTheme.bodyMedium?.copyWith(
+                  color: AppColors.muted,
+                  fontSize: 13.5,
                 ),
-              ],
+              ),
+              const SizedBox(height: 12),
+              // Baris 4: badge + agen
+              Row(
+                children: [
+                  PriorityBadge(ticket: ticket, compact: true),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const Icon(Icons.person_outline_rounded,
+                            size: 14, color: AppColors.muted),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            ticket.assignedAgent != null
+                                ? ticket.assignedAgent!.name
+                                : 'Belum diambil',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: AppColors.muted,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),

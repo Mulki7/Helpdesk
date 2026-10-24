@@ -52,10 +52,10 @@ export const STATUS_LABELS = {
 };
 
 export const STATUS_COLORS = {
-  OPEN: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  IN_PROGRESS: 'bg-blue-50 text-blue-700 border-blue-200',
-  RESOLVED: 'bg-amber-50 text-amber-700 border-amber-200',
-  CLOSED: 'bg-slate-100 text-slate-600 border-slate-200',
+  OPEN: 'bg-emerald-50 text-emerald-700 border-emerald-200/90',
+  IN_PROGRESS: 'bg-slate-100 text-slate-800 border-slate-300 font-semibold',
+  RESOLVED: 'bg-amber-50 text-amber-700 border-amber-200/90',
+  CLOSED: 'bg-slate-100 text-slate-500 border-slate-200',
 };
 
 export const PRIORITY_LABELS = {
@@ -69,3 +69,4 @@ export const PRIORITY_COLORS = {
   MEDIUM: 'bg-amber-50 text-amber-700 border-amber-200',
   HIGH: 'bg-rose-50 text-rose-700 border-rose-200',
 };
+

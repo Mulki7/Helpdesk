@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../core/theme.dart';
 import '../models/message.dart';
 
 /// Gelembung chat (customer kiri, agent kanan, system tengah).
@@ -24,40 +25,41 @@ class MessageBubble extends StatelessWidget {
 
     if (isSystem) {
       return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 32),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 32),
         child: Center(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+            decoration: const ShapeDecoration(
+              color: Colors.white,
+              shape: StadiumBorder(side: BorderSide(color: AppColors.border)),
             ),
             child: Text(
               message.body,
               textAlign: TextAlign.center,
-              style: TextStyle(
-                  color: cs.onSurfaceVariant,
+              style: const TextStyle(
+                  color: AppColors.muted,
                   fontSize: 12,
-                  fontStyle: FontStyle.italic),
+                  fontWeight: FontWeight.w500),
             ),
           ),
         ),
       );
     }
 
+    // Agen = hitam (kanan), customer = putih berborder (kiri)
     final bubbleColor = message.isFailed
         ? cs.errorContainer
-        : (isMine ? cs.primaryContainer : cs.secondaryContainer);
+        : (isMine ? AppColors.ink : Colors.white);
     final textColor = message.isFailed
         ? cs.onErrorContainer
-        : (isMine ? cs.onPrimaryContainer : cs.onSecondaryContainer);
+        : (isMine ? Colors.white : AppColors.ink);
     final timeStr =
         DateFormat('HH:mm').format(message.createdAt.toLocal());
 
     return Padding(
       padding: EdgeInsets.only(
-        left: isMine ? 48 : 8,
-        right: isMine ? 8 : 48,
+        left: isMine ? 56 : 8,
+        right: isMine ? 8 : 56,
         top: 3,
         bottom: 3,
       ),
@@ -72,35 +74,41 @@ class MessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 8, bottom: 2),
                 child: Text(
                   message.senderName!,
-                  style: TextStyle(
-                      fontSize: 11,
-                      color: cs.secondary,
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      color: AppColors.muted,
                       fontWeight: FontWeight.w600),
                 ),
               ),
             Container(
               padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: bubbleColor,
+                border: (isMine && !message.isFailed)
+                    ? null
+                    : Border.all(
+                        color: message.isFailed
+                            ? cs.error.withAlpha(90)
+                            : AppColors.border),
                 borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isMine ? 16 : 4),
-                  bottomRight: Radius.circular(isMine ? 4 : 16),
+                  topLeft: const Radius.circular(20),
+                  topRight: const Radius.circular(20),
+                  bottomLeft: Radius.circular(isMine ? 20 : 6),
+                  bottomRight: Radius.circular(isMine ? 6 : 20),
                 ),
               ),
               child: Text(message.body,
-                  style: TextStyle(color: textColor, fontSize: 14)),
+                  style: TextStyle(color: textColor, fontSize: 14.5, height: 1.35)),
             ),
             Padding(
-              padding: const EdgeInsets.only(top: 2, left: 4, right: 4),
+              padding: const EdgeInsets.only(top: 3, left: 6, right: 6),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(timeStr,
                       style: TextStyle(
-                          fontSize: 10, color: cs.onSurfaceVariant)),
+                          fontSize: 10.5, color: AppColors.muted)),
                   if (message.isFailed) ...[
                     const SizedBox(width: 6),
                     Icon(Icons.error_outline, size: 12, color: cs.error),
@@ -125,8 +133,8 @@ class MessageBubble extends StatelessWidget {
                           : Icons.check,
                       size: 12,
                       color: message.isPending
-                          ? cs.onSurfaceVariant
-                          : cs.primary,
+                          ? AppColors.muted
+                          : AppColors.green,
                     ),
                   ],
                 ],

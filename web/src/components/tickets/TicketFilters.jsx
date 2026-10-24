@@ -8,24 +8,24 @@ export function TicketFilters({ activeTab, onSelectTab, counts }) {
   ];
 
   return (
-    <div className="flex border-b border-slate-200 bg-white px-3 gap-1 overflow-x-auto shrink-0 scrollbar-none">
+    <div className="flex border-b border-slate-100 bg-white px-3 gap-1 overflow-x-auto shrink-0 scrollbar-none">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
           <button
             key={tab.id}
             onClick={() => onSelectTab(tab.id)}
-            className={`flex items-center gap-1.5 py-3 px-2.5 text-xs font-semibold border-b-2 whitespace-nowrap transition-colors ${
+            className={`flex items-center gap-1.5 py-2.5 px-3.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all cursor-pointer my-1.5 shadow-sm ${
               isActive
-                ? 'border-brand-600 text-brand-600'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                ? 'bg-[#111111] text-white shadow-md'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100 shadow-none'
             }`}
           >
             <span>{tab.label}</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+              className={`min-w-[18px] h-5 px-1.5 rounded-md text-[10px] font-bold flex items-center justify-center ${
                 isActive
-                  ? 'bg-brand-100 text-brand-700'
+                  ? 'bg-white/15 text-white'
                   : 'bg-slate-100 text-slate-500'
               }`}
             >

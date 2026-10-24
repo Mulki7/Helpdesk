@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'core/theme.dart';
 import 'data/repositories/auth_repository.dart';
@@ -15,6 +16,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id');
   await FcmService.instance.initialize(navigatorKey);
   runApp(const HelpdeskApp());
 }
@@ -35,8 +37,7 @@ class HelpdeskApp extends StatelessWidget {
         ),
         ChangeNotifierProvider.value(value: socketService),
         ChangeNotifierProvider(
-          create: (_) =>
-              ConnectionProvider(socket: socketService),
+          create: (_) => ConnectionProvider(socket: socketService),
         ),
         ChangeNotifierProvider(
           create: (_) => TicketsProvider(
