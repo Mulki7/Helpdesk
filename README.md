@@ -20,13 +20,17 @@ Proyek ini dibuat sebagai Take Home Programming Test Software Engineer (pilihan:
 
 ## 2. Tampilan Aplikasi
 
+| Login Web | Login Mobile |
+|---|---|
+| ![Login web](docs/screenshots/login%20helpdesk.jpeg) | ![Login mobile](docs/screenshots/login%20mobile%20helpdesk.jpeg) |
+
 | Web App Agen/Admin | Widget di Halaman Demo |
 |---|---|
-| ![Web inbox](docs/screenshots/web-inbox.png) | ![Widget di halaman demo](docs/screenshots/widget-demo.png) |
+| ![Web inbox](docs/screenshots/web%20helpdesk.jpeg) | ![Widget di halaman demo](docs/screenshots/widget%20helpdesk.jpeg) |
 
 | Daftar Tiket (Mobile) | Chat Tiket (Mobile) | Push Notification |
 |---|---|---|
-| ![Daftar tiket mobile](docs/screenshots/mobile-list.png) | ![Chat tiket mobile](docs/screenshots/mobile-chat.png) | ![Push notification](docs/screenshots/push-notification.png) |
+| ![Daftar tiket mobile](docs/screenshots/mobile%20helpdesk.jpeg) | ![Chat tiket mobile](docs/screenshots/room%20massage%20helpdesk.jpeg) | ![Push notification](docs/screenshots/notification%20mobile.jpeg) |
 
 ---
 
