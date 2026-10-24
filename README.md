@@ -22,11 +22,11 @@ Proyek ini dibuat sebagai Take Home Programming Test Software Engineer (pilihan:
 
 | Login Web | Login Mobile |
 |---|---|
-| ![Login web](docs/screenshots/login%20helpdesk.jpeg) | ![Login mobile](docs/screenshots/login%20mobile%20helpdesk.jpeg) |
+| ![Login web](docs/screenshots/login%20helpdesk.png) | ![Login mobile](docs/screenshots/login%20mobile%20helpdesk.jpeg) |
 
 | Web App Agen/Admin | Widget di Halaman Demo |
 |---|---|
-| ![Web inbox](docs/screenshots/web%20helpdesk.jpeg) | ![Widget di halaman demo](docs/screenshots/widget%20helpdesk.jpeg) |
+| ![Web inbox](docs/screenshots/web%20helpdesk.png) | ![Widget di halaman demo](docs/screenshots/widget%20helpdesk.png) |
 
 | Daftar Tiket (Mobile) | Chat Tiket (Mobile) | Push Notification |
 |---|---|---|
